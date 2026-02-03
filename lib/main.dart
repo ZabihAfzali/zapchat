@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:zapchat/core/theme/app_theme.dart';
 import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 import 'package:zapchat/features/auth/repository/auth_repository.dart';
 import 'package:zapchat/features/auth/views/login_screen.dart';
+import 'core/config/app_config.dart';
+import 'core/constants/app_colors.dart';
+import 'core/screens/auth_wrapper.dart';
 import 'features/auth/bloc/auth_events.dart';
+import 'features/auth/bloc/auth_state.dart';
+import 'features/home/views/main_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -18,11 +24,29 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Set preferred orientations (portrait only for now)
-  // await SystemChrome.setPreferredOrientations([
-  //   DeviceOrientation.portraitUp,
-  //   DeviceOrientation.portraitDown,
-  // ]);
+  // Check if we can use real services
+  print('🔧 App Config:');
+  print('   • Use Dev Storage: ${AppConfig.useDevStorage}');
+  print('   • Can Upload Media: ${AppConfig.canUploadMedia}');
+  print('   • Use Dev Chat Data: ${AppConfig.useDevChatData}');
+
+  if (AppConfig.useDevStorage) {
+    print('   ⚠️  Using development storage (no billing required)');
+  }
+
+  // Set preferred orientations
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // Set system UI style
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: AppColors.background,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
 
   runApp(const MyApp());
 }
@@ -67,118 +91,5 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// AuthWrapper will decide which screen to show based on auth state
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        // Show loading while checking auth state
-        if (state is AuthLoading) {
-          return const SplashScreen();
-        }
 
-        // If authenticated, show main app (we'll implement later)
-        if (state is Authenticated) {
-          return const MainScreen(); // We'll create this later
-        }
-
-        // If not authenticated, show login screen
-        return const LoginScreen();
-      },
-    );
-  }
-}
-
-// Splash Screen
-class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // App Logo
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.yellow,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: const Center(
-                child: Text(
-                  'Z',
-                  style: TextStyle(
-                    fontSize: 60,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // App Name
-            const Text(
-              'ZapChat',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.yellow,
-              ),
-            ),
-            const SizedBox(height: 30),
-            // Loading indicator
-            const CircularProgressIndicator(
-              color: Colors.yellow,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Placeholder for MainScreen (we'll implement later)
-class MainScreen extends StatelessWidget {
-  const MainScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Welcome to ZapChat!',
-              style: TextStyle(
-                fontSize: 24,
-                color: Colors.yellow,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                context.read<AuthBloc>().add(AuthLogoutRequested());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.yellow,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Logout'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

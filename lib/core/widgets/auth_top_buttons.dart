@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+/// Toggle buttons for Login/Signup at the top
 class TopAuthButton extends StatelessWidget {
   final String title;
   final bool isActive;
@@ -17,18 +19,23 @@ class TopAuthButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 44,
-        alignment: Alignment.center,
+        height: 48.h,
         decoration: BoxDecoration(
-          color: isActive ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.black),
+          color: isActive ? Colors.black : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.black,
+            width: 2,
+          ),
         ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.black,
-            fontWeight: FontWeight.w600,
+        child: Center(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              color: isActive ? Colors.white : Colors.black,
+            ),
           ),
         ),
       ),

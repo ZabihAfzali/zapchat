@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 import 'package:zapchat/features/auth/views/sign_up_screen.dart';
+import 'package:zapchat/features/auth/views/forgot_password_screen.dart';
 
 import '../../../core/widgets/auth_text_field.dart';
 import '../../../core/widgets/auth_top_buttons.dart';
 import '../../../core/widgets/social_login_buttons.dart';
-
+import '../bloc/auth_events.dart';
+import '../bloc/auth_state.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,117 +36,201 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  void _handleLogin() {
+    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    context.read<AuthBloc>().add(
+      AuthLoginRequested(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFFC00), // Snapchat yellow
-      body: Padding(
-        padding:  EdgeInsets.symmetric(horizontal: 28.w),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Snapchat logo
-            Image.asset(
-              'assets/images/snapchat_logo.jpg',
-              height: 80.h,
-            ),
-             SizedBox(height: 28.h),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is Authenticated) {
+          // Navigate to MainScreen
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/home',
+                (route) => false,
+          );
+        }
 
-            // LOGIN / SIGNUP TOGGLE BUTTONS
-            Row(
-              children: [
-                Expanded(
-                  child: TopAuthButton(
-                    title: 'Log In',
-                    isActive: true,
-                    onTap: () {},
+        if (state is AuthError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFFC00), // Snapchat yellow
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 28.w),
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(height: 40.h),
+
+                  // Snapchat logo
+                  Image.asset(
+                    'assets/images/snapchat_logo.jpg',
+                    height: 80.h,
                   ),
-                ),
-                 SizedBox(width: 12.w),
-                Expanded(
-                  child: TopAuthButton(
-                    title: 'Sign Up',
-                    isActive: false,
-                    onTap: () {
-                      // Navigate to signup screen later
-                      Navigator.push(context, MaterialPageRoute(builder: (context)=>SignUpScreen()));
+                  SizedBox(height: 28.h),
+
+                  // LOGIN / SIGNUP TOGGLE BUTTONS
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TopAuthButton(
+                          title: 'Log In',
+                          isActive: true,
+                          onTap: () {},
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: TopAuthButton(
+                          title: 'Sign Up',
+                          isActive: false,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SignUpScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // EMAIL TEXT FIELD
+                  AuthTextField(
+                    hint: 'Email',
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  SizedBox(height: 12.h),
+
+                  // PASSWORD TEXT FIELD
+                  AuthTextField(
+                    hint: 'Password',
+                    controller: passwordController,
+                    isPassword: true,
+                  ),
+                  SizedBox(height: 26.h),
+
+                  // LOGIN BUTTON
+                  BlocBuilder<AuthBloc, AuthState>(
+                    builder: (context, state) {
+                      final isLoading = state is AuthLoading;
+
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: isLoading ? null : _handleLogin,
+                          child: isLoading
+                              ? SizedBox(
+                            height: 20.h,
+                            width: 20.h,
+                            child: const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Text('Log In'),
+                        ),
+                      );
                     },
                   ),
-                ),
-              ],
-            ),
-             SizedBox(height: 24.h),
 
-            // EMAIL TEXT FIELD
-            AuthTextField(
-              hint: 'Email or Username',
-              controller: emailController,
-            ),
-             SizedBox(height: 12.h),
+                  SizedBox(height: 12.h),
 
-            // PASSWORD TEXT FIELD
-            AuthTextField(
-              hint: 'Password',
-              controller: passwordController,
-              isPassword: true,
-            ),
-             SizedBox(height: 26.h),
+                  // FORGOT PASSWORD CENTERED BELOW LOGIN BUTTON
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ForgotPasswordScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Forgot your password?',
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                  SizedBox(height: 24.h),
 
-            // LOGIN BUTTON
-            SizedBox(
-              width: double.infinity,
-              height: 48.h,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                ),
-                onPressed: () {
+                  const Text(
+                    'or continue with',
+                    style: TextStyle(color: Colors.black54),
+                  ),
 
-                },
-                child: const Text('Log In'),
+                  SizedBox(height: 16.h),
+
+                  // GOOGLE
+                  SocialLoginButton(
+                    text: 'Continue with Google',
+                    icon: Icons.g_mobiledata,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Google Sign In coming soon'),
+                        ),
+                      );
+                    },
+                  ),
+
+                  SizedBox(height: 12.h),
+
+                  // FACEBOOK
+                  SocialLoginButton(
+                    text: 'Continue with Facebook',
+                    icon: Icons.facebook,
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Facebook Sign In coming soon'),
+                        ),
+                      );
+                    },
+                  ),
+
+                  SizedBox(height: 40.h), // Add bottom padding
+                ],
               ),
             ),
-
-             SizedBox(height: 12.h),
-
-            // FORGOT PASSWORD CENTERED BELOW LOGIN BUTTON
-            TextButton(
-              onPressed: () {
-                // Handle forgot password
-              },
-              child: const Text(
-                'Forgot your password?',
-                style: TextStyle(color: Colors.black),
-              ),
-            ),
-             SizedBox(height: 24.h),
-
-            const Text(
-              'or continue with',
-              style: TextStyle(color: Colors.black54),
-            ),
-
-             SizedBox(height: 16.h),
-
-// GOOGLE
-            SocialLoginButton(
-              text: 'Continue with Google',
-              icon: Icons.g_mobiledata,
-              onTap: () {
-              },
-            ),
-
-             SizedBox(height: 12.h),
-
-// FACEBOOK
-            SocialLoginButton(
-              text: 'Continue with Facebook',
-              icon: Icons.facebook,
-              onTap: () {
-              },
-            ),
-
-          ],
+          ),
         ),
       ),
     );

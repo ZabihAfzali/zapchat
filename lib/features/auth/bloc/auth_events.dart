@@ -1,4 +1,4 @@
-part of 'auth_bloc.dart';
+import 'package:equatable/equatable.dart';
 
 abstract class AuthEvent extends Equatable {
   const AuthEvent();
@@ -42,14 +42,28 @@ class AuthSignupRequested extends AuthEvent {
   List<Object> get props => [name, email, phone, password];
 }
 
+// Send OTP to phone
+class AuthSendOtpRequested extends AuthEvent {
+  final String phoneNumber;
+
+  const AuthSendOtpRequested({required this.phoneNumber});
+
+  @override
+  List<Object> get props => [phoneNumber];
+}
+
 // OTP verification event
 class AuthOtpVerificationRequested extends AuthEvent {
   final String otp;
+  final String verificationId;
 
-  const AuthOtpVerificationRequested({required this.otp});
+  const AuthOtpVerificationRequested({
+    required this.otp,
+    required this.verificationId,
+  });
 
   @override
-  List<Object> get props => [otp];
+  List<Object> get props => [otp, verificationId];
 }
 
 // Logout event
