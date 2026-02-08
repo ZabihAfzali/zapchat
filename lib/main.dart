@@ -7,9 +7,13 @@ import 'package:zapchat/core/theme/app_theme.dart';
 import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 import 'package:zapchat/features/auth/repository/auth_repository.dart';
 import 'package:zapchat/features/auth/views/login_screen.dart';
+import 'package:zapchat/features/chat/bloc/chat_bloc.dart';
+import 'package:zapchat/features/chat/bloc/chat_events.dart';
+import 'package:zapchat/features/chat/repository/chat_repository.dart';
 import 'core/config/app_config.dart';
 import 'core/constants/app_colors.dart';
 import 'core/screens/auth_wrapper.dart';
+import 'core/services/storage_services.dart';
 import 'features/auth/bloc/auth_events.dart';
 import 'features/auth/bloc/auth_state.dart';
 import 'features/home/views/main_screen.dart';
@@ -53,16 +57,27 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
+
     // Create repository instances
     final authRepository = AuthRepository();
+    final chatRepository = ChatRepository();
 
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<AuthRepository>(
-          create: (context) => authRepository,
+          create: (context) => AuthRepository(),
+        ),
+        RepositoryProvider<StorageService>(
+          create: (context) => AppConfig.useDevStorage
+              ? DevStorageService()
+              : FirebaseStorageService(),
+        ),
+        RepositoryProvider<ChatRepository>(
+          create: (context) => ChatRepository(
+            storageService: context.read<StorageService>(),
+          ),
         ),
       ],
       child: MultiBlocProvider(
@@ -71,6 +86,11 @@ class MyApp extends StatelessWidget {
             create: (context) => AuthBloc(
               authRepository: context.read<AuthRepository>(),
             )..add(AuthCheckRequested()),
+          ),
+          BlocProvider<ChatBloc>(
+            create: (context) => ChatBloc(
+              chatRepository: context.read<ChatRepository>(),
+            ),
           ),
         ],
         child: ScreenUtilInit(

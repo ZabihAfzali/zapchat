@@ -45,22 +45,22 @@ class CustomBottomNav extends StatelessWidget {
       BottomNavigationBarItem(
         icon: Icon(Icons.chat_bubble_outline, size: 28),
         activeIcon: Icon(Icons.chat_bubble, size: 28),
-        label: '',
+        label: 'chat',
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.camera_alt_outlined, size: 28),
         activeIcon: Icon(Icons.camera_alt, size: 28),
-        label: '',
+        label: 'camera',
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.play_arrow_outlined, size: 28),
         activeIcon: Icon(Icons.play_arrow, size: 28),
-        label: '',
+        label: 'friends',
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.person_outline, size: 28),
         activeIcon: Icon(Icons.person, size: 28),
-        label: '',
+        label: 'home',
       ),
     ];
   }

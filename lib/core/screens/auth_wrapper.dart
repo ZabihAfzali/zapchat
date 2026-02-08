@@ -4,6 +4,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:zapchat/core/screens/splash_screen.dart';
+import 'package:zapchat/features/chat/views/chat_list_screen.dart';
 
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/bloc/auth_state.dart';
@@ -25,7 +26,7 @@ class AuthWrapper extends StatelessWidget {
 
         // If authenticated, show main app (we'll implement later)
         if (state is Authenticated) {
-          return const MainScreen(); // We'll create this later
+          return const ChatListScreen(); // We'll create this later
         }
 
         // If not authenticated, show login screen

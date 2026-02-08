@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:zapchat/core/constants/asset_constants.dart';
+import 'package:zapchat/core/routes/route_names.dart';
 import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 import 'package:zapchat/features/auth/views/sign_up_screen.dart';
 import 'package:zapchat/features/auth/views/forgot_password_screen.dart';
@@ -81,47 +84,45 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: const Color(0xFFFFFC00), // Snapchat yellow
         body: SafeArea(
           child: SingleChildScrollView(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 28.w),
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height,
-              ),
+            child: Padding(
+              padding: const EdgeInsets.all(18.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(height: 40.h),
 
-                  // Snapchat logo
-                  Image.asset(
-                    'assets/images/snapchat_logo.jpg',
-                    height: 80.h,
+                  // Snapchat logos
+                  Container(
+                    margin: EdgeInsets.all(20.r),
+                    height: 100.h,
+                    width: 100.w,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.all(Radius.circular(20.r))
+                    ),
+                    child: SvgPicture.asset(
+                      AssetConstants.snapLogoNoBackgroundWhite,
+                      height: 100.h,
+                      width: 100.w,
+                    ),
                   ),
-                  SizedBox(height: 28.h),
-
+                  SizedBox(height: 20.h),
                   // LOGIN / SIGNUP TOGGLE BUTTONS
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+
                     children: [
-                      Expanded(
-                        child: TopAuthButton(
-                          title: 'Log In',
-                          isActive: true,
-                          onTap: () {},
-                        ),
+                      TopAuthButton(
+                        title: 'Log In',
+                        isActive: true,
+                        onTap: () {},
                       ),
                       SizedBox(width: 12.w),
-                      Expanded(
-                        child: TopAuthButton(
-                          title: 'Sign Up',
-                          isActive: false,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const SignUpScreen(),
-                              ),
-                            );
-                          },
-                        ),
+                      TopAuthButton(
+                        title: 'Sign Up',
+                        isActive: false,
+                        onTap: () {
+                         Navigator.push(context, MaterialPageRoute(builder: (context)=>SignUpScreen()));
+                        },
                       ),
                     ],
                   ),
@@ -141,6 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: passwordController,
                     isPassword: true,
                   ),
+
                   SizedBox(height: 26.h),
 
                   // LOGIN BUTTON
@@ -158,14 +160,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           onPressed: isLoading ? null : _handleLogin,
                           child: isLoading
-                              ? SizedBox(
-                            height: 20.h,
-                            width: 20.h,
-                            child: const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
+                              ? const CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              )
                               : const Text('Log In'),
                         ),
                       );
@@ -184,47 +182,81 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       );
                     },
-                    child: const Text(
+                    child: Text(
                       'Forgot your password?',
-                      style: TextStyle(color: Colors.black),
+                      style: TextStyle(
+                          color: Colors.black,
+                        fontSize: 15.sp,
+
+                      ),
                     ),
                   ),
-                  SizedBox(height: 24.h),
-
-                  const Text(
+                  SizedBox(height: 20.h),
+                   Text(
                     'or continue with',
-                    style: TextStyle(color: Colors.black54),
+                    style: TextStyle(
+                        color: Colors.black54,
+                      fontSize: 16.sp,
+                    ),
                   ),
 
                   SizedBox(height: 16.h),
 
                   // GOOGLE
-                  SocialLoginButton(
-                    text: 'Continue with Google',
-                    icon: Icons.g_mobiledata,
-                    onTap: () {
+
+                  DefaultButton(
+                    title: 'Continue with Google',
+                    image: AssetConstants.googleLogoLight,
+                    onPressed: (){
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Google Sign In coming soon'),
                         ),
                       );
                     },
+                    buttonColor: Colors.black,
+                    buttonTextColor: Colors.white,
                   ),
+                  // SocialLoginButton(
+                  //   text: 'Continue with Google',
+                  //   image: AssetConstants.googleLogoLight,
+                  //   onTap: () {
+                  //     ScaffoldMessenger.of(context).showSnackBar(
+                  //       const SnackBar(
+                  //         content: Text('Google Sign In coming soon'),
+                  //       ),
+                  //     );
+                  //   },
+                  // ),
 
                   SizedBox(height: 12.h),
 
                   // FACEBOOK
-                  SocialLoginButton(
-                    text: 'Continue with Facebook',
-                    icon: Icons.facebook,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Facebook Sign In coming soon'),
-                        ),
-                      );
-                    },
+
+                  DefaultButton(
+                      title: 'Continue with Facebook',
+                      image: AssetConstants.facebookLight,
+                      onPressed: (){
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Facebook Sign In coming soon'),
+                          ),
+                        );
+                      },
+                      buttonColor: Colors.black,
+                      buttonTextColor: Colors.white,
                   ),
+                  // SocialLoginButton(
+                  //   text: 'Continue with Facebook',
+                  //   image: AssetConstants.facebookLight,
+                  //   onTap: () {
+                  //     ScaffoldMessenger.of(context).showSnackBar(
+                  //       const SnackBar(
+                  //         content: Text('Facebook Sign In coming soon'),
+                  //       ),
+                  //     );
+                  //   },
+                  // ),
 
                   SizedBox(height: 40.h), // Add bottom padding
                 ],

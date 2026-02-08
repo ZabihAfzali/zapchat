@@ -2,8 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 
+import '../../../core/constants/asset_constants.dart';
 import '../../../core/widgets/auth_text_field.dart';
 import '../bloc/auth_events.dart';
 import '../bloc/auth_state.dart';
@@ -22,8 +24,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   late final TextEditingController phoneController;
   late final TextEditingController passwordController;
   late final TextEditingController confirmPasswordController;
-  bool _isSignUpSuccess = false;
-
   @override
   void initState() {
     super.initState();
@@ -45,6 +45,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   void _handleSignUp() {
+    print('function called');
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
         phoneController.text.isEmpty ||
@@ -87,6 +88,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: passwordController.text,
       ),
     );
+    print('function called again');
   }
 
   @override
@@ -102,19 +104,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
               duration: Duration(seconds: 3),
             ),
           );
-
           // Navigate back to login screen after delay
           Future.delayed(const Duration(milliseconds: 1500), () {
             Navigator.pop(context);
           });
         }
-
         if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
           );
         }
       },
@@ -122,15 +119,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
         child: Scaffold(
           backgroundColor: const Color(0xFFFFFC00), // Snapchat yellow
           body: SingleChildScrollView(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 28.w),
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height,
-              ),
+            child: Padding(
+              padding: EdgeInsets.all(20.0.r),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(height: 10.h),
                   Align(
                     alignment: Alignment.topLeft,
                     child: GestureDetector(
@@ -140,35 +133,39 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       child: const Icon(
                         CupertinoIcons.back,
                         size: 30,
+                        color: Colors.black,
                       ),
                     ),
                   ),
-                  SizedBox(height: 10.h),
-
+                  SizedBox(height: 5.h),
                   // Optional Snapchat Ghost at top
-                  Image.asset(
-                    'assets/images/snapchat_logo.jpg',
-                    height: 80,
+                  Container(
+                    margin: EdgeInsets.all(20.r),
+                    height: 100.h,
+                    width: 100.w,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.all(Radius.circular(20.r)),
+                    ),
+                    child: SvgPicture.asset(
+                      AssetConstants.snapLogoNoBackgroundWhite,
+                    ),
                   ),
-                  SizedBox(height: 20.h),
-
+                  SizedBox(height: 10.h),
                   Text(
                     'Create Account',
                     style: TextStyle(
-                      fontSize: 24.sp,
+                      fontSize: 25.sp,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
                   ),
 
-                  SizedBox(height: 24.h),
+                  SizedBox(height: 20.h),
 
                   // Name Field
-                  AuthTextField(
-                    hint: 'Full Name',
-                    controller: nameController,
-                  ),
-                  SizedBox(height: 12.h),
+                  AuthTextField(hint: 'Full Name', controller: nameController),
+                  SizedBox(height: 10.h),
 
                   // Email Field
                   AuthTextField(
@@ -176,15 +173,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
                   ),
-                  SizedBox(height: 12.h),
-
+                  SizedBox(height: 10.h),
                   // Phone Field
                   AuthTextField(
                     hint: 'Phone Number (optional for now)',
                     controller: phoneController,
                     keyboardType: TextInputType.phone,
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 10.h),
 
                   // Password Field
                   AuthTextField(
@@ -192,7 +188,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     controller: passwordController,
                     isPassword: true,
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 10.h),
 
                   // Confirm Password Field
                   AuthTextField(
@@ -200,36 +196,43 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     controller: confirmPasswordController,
                     isPassword: true,
                   ),
-
-                  SizedBox(height: 24.h),
-
+                  SizedBox(height: 20.h),
                   // Sign Up Button
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       final isLoading = state is AuthLoading;
 
-                      return SizedBox(
-                        width: double.infinity,
-                        height: 48.h,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
+                      return GestureDetector(
+                        onTap: () {
+                          if(isLoading == false){
+                            _handleSignUp();
+                          }
+                          else{
+                            print('is loading :: $isLoading');
+                          }
+                        },
+                        child: Container(
+                          height: 50.h,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10.r),
+                            color: Colors.black,
                           ),
-                          onPressed: isLoading ? null : _handleSignUp,
                           child: isLoading
-                              ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                              : const Text(
-                            'Sign Up',
-                            style: TextStyle(color: Colors.white),
-                          ),
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                )
+                              : Center(
+                                  child: Text(
+                                    'Sign Up',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15.sp,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                         ),
                       );
                     },
@@ -238,14 +241,32 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   SizedBox(height: 16.h),
 
                   // Already have account: go to login
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      'Already have an account? Log In',
-                      style: TextStyle(color: Colors.black),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account?',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(width: 10.w),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: Text(
+                          'Login',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   SizedBox(height: 40.h), // Bottom padding

@@ -37,6 +37,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
       controller: widget.controller,
       obscureText: widget.isPassword && _obscureText,
       keyboardType: widget.keyboardType,
+      cursorColor: Colors.black,
       style: TextStyle(
         color: Colors.black,
         fontSize: 16.sp,
@@ -46,12 +47,12 @@ class _AuthTextFieldState extends State<AuthTextField> {
         hintText: widget.hint,
         hintStyle: TextStyle(
           color: Colors.black54,
-          fontSize: 16.sp,
+          fontSize: 15.sp,
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Colors.white70,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide.none,
         ),
         contentPadding: EdgeInsets.symmetric(

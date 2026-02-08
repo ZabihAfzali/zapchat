@@ -3,7 +3,6 @@ import 'package:equatable/equatable.dart';
 
 abstract class AuthState extends Equatable {
   const AuthState();
-
   @override
   List<Object> get props => [];
 }
@@ -25,7 +24,6 @@ class Authenticated extends AuthState {
     required this.email,
     required this.name,
   });
-
   @override
   List<Object> get props => [userId, email, name];
 }

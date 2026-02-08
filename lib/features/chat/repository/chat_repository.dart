@@ -19,31 +19,12 @@ class ChatRepository {
 
   // Development data for testing
   final List<Map<String, dynamic>> _devChats = [
-    {
-      'id': 'chat_1',
-      'participants': ['user1', 'user2'],
-      'lastMessage': 'Hey! How are you?',
-      'lastMessageTime': DateTime.now().subtract(const Duration(minutes: 5)),
-      'unreadCount': 2,
-      'user': {
-        'id': 'user2',
-        'name': 'Emma Wilson',
-        'profilePicture': 'https://randomuser.me/api/portraits/women/1.jpg',
-        'isOnline': true,
-      },
-    },
-    {
-      'id': 'chat_2',
-      'participants': ['user1', 'user3'],
-      'lastMessage': 'Check out this photo! 📸',
-      'lastMessageTime': DateTime.now().subtract(const Duration(hours: 1)),
-      'unreadCount': 0,
-      'user': {
-        'id': 'user3',
-        'name': 'John Smith',
-        'profilePicture': 'https://randomuser.me/api/portraits/men/2.jpg',
-        'isOnline': false,
-      },
+     {
+      'id': 'user2',
+      'name': 'Emma Wilson',
+      'profilePicture': 'https://randomuser.me/api/portraits/women/1.jpg',
+      'isOnline': true,
+      'hasStory': true, // Add this field
     },
   ];
 
@@ -52,7 +33,7 @@ class ChatRepository {
       'id': 'msg_1',
       'senderId': 'user1',
       'text': 'Hello!',
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 10)),
+      'timestamp': DateTime.now().subtract(const Duration(minutes: 10))??'',
       'type': 'text',
       'status': 'read',
     },

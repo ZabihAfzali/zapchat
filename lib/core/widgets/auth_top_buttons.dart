@@ -19,7 +19,8 @@ class TopAuthButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 48.h,
+        height: 40.h,
+        width: 100.w,
         decoration: BoxDecoration(
           color: isActive ? Colors.black : Colors.transparent,
           borderRadius: BorderRadius.circular(8),

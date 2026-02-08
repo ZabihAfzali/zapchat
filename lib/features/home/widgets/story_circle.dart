@@ -25,70 +25,72 @@ class StoryCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              // Story ring
-              Container(
-                width: size.w,
-                height: size.h,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: hasStory && isUnseen
-                      ? const LinearGradient(
-                    colors: [Colors.pink, Colors.orange, Colors.yellow],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                      : null,
-                  color: (hasStory && !isUnseen) ? Colors.grey[700] : null,
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                // Story ring
+                Container(
+                  width: size.w,
+                  height: size.h,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: hasStory && isUnseen
+                        ? const LinearGradient(
+                      colors: [Colors.pink, Colors.orange, Colors.yellow],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                        : null,
+                    color: (hasStory && !isUnseen) ? Colors.grey[700] : null,
+                  ),
+                  padding: EdgeInsets.all(isAddButton ? 0 : 3.sp),
+                  child: isAddButton
+                      ? _buildAddButton()
+                      : _buildProfileInitial(),
                 ),
-                padding: EdgeInsets.all(isAddButton ? 0 : 3.sp),
-                child: isAddButton
-                    ? _buildAddButton()
-                    : _buildProfileInitial(),
-              ),
-
-              // Live badge
-              if (isLive)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.black, width: 2),
-                    ),
-                    child: Text(
-                      'LIVE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.bold,
+        
+                // Live badge
+                if (isLive)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.black, width: 2),
+                      ),
+                      child: Text(
+                        'LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-
-          if (!isAddButton) SizedBox(height: 8.h),
-
-          if (!isAddButton)
-            Text(
-              name,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14.sp,
-                fontWeight: isUnseen ? FontWeight.bold : FontWeight.normal,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              ],
             ),
-        ],
+        
+            if (!isAddButton) SizedBox(height: 8.h),
+        
+            if (!isAddButton)
+              Text(
+                name,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14.sp,
+                  fontWeight: isUnseen ? FontWeight.bold : FontWeight.normal,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart';
 
 class AuthRepository {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
@@ -111,7 +112,6 @@ class AuthRepository {
         email: email,
         password: password,
       );
-
       print('✅ Login successful: ${userCredential.user!.uid}');
       return userCredential.user!;
     } catch (e) {
@@ -158,7 +158,6 @@ class AuthRepository {
           'lastSeen': FieldValue.serverTimestamp(),
           'isOnline': true,
         }, SetOptions(merge: true));
-
         print('✅ Firestore document created');
       } catch (firestoreError) {
         print('⚠️ Firestore error: $firestoreError');
