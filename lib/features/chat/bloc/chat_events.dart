@@ -1,3 +1,6 @@
+// lib/features/chat/bloc/chat_events.dart
+
+import 'dart:io';
 
 import 'package:equatable/equatable.dart';
 
@@ -8,10 +11,8 @@ abstract class ChatEvent extends Equatable {
   List<Object> get props => [];
 }
 
-// Load chats
 class LoadChats extends ChatEvent {}
 
-// Load messages for a specific chat
 class LoadMessages extends ChatEvent {
   final String chatId;
 
@@ -21,7 +22,6 @@ class LoadMessages extends ChatEvent {
   List<Object> get props => [chatId];
 }
 
-// Send text message
 class SendTextMessage extends ChatEvent {
   final String chatId;
   final String text;
@@ -37,25 +37,25 @@ class SendTextMessage extends ChatEvent {
   List<Object> get props => [chatId, text, receiverId];
 }
 
-// Send media message
 class SendMediaMessage extends ChatEvent {
   final String chatId;
-  final String filePath;
-  final String mediaType; // 'image' or 'video'
+  final File file;
+  final String mediaType;
   final String receiverId;
+  final String? caption;
 
   const SendMediaMessage({
     required this.chatId,
-    required this.filePath,
+    required this.file,
     required this.mediaType,
     required this.receiverId,
+    this.caption,
   });
 
   @override
-  List<Object> get props => [chatId, filePath, mediaType, receiverId];
+  List<Object> get props => [chatId, file, mediaType, receiverId];
 }
 
-// Mark message as read
 class MarkMessageAsRead extends ChatEvent {
   final String chatId;
   final String messageId;
@@ -69,7 +69,6 @@ class MarkMessageAsRead extends ChatEvent {
   List<Object> get props => [chatId, messageId];
 }
 
-// Update typing status
 class UpdateTypingStatus extends ChatEvent {
   final String chatId;
   final bool isTyping;
@@ -83,7 +82,6 @@ class UpdateTypingStatus extends ChatEvent {
   List<Object> get props => [chatId, isTyping];
 }
 
-// Delete message
 class DeleteMessage extends ChatEvent {
   final String chatId;
   final String messageId;
@@ -97,4 +95,13 @@ class DeleteMessage extends ChatEvent {
 
   @override
   List<Object> get props => [chatId, messageId, forEveryone];
+}
+
+class ClearUnreadCount extends ChatEvent {
+  final String chatId;
+
+  const ClearUnreadCount({required this.chatId});
+
+  @override
+  List<Object> get props => [chatId];
 }

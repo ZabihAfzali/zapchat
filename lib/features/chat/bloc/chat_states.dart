@@ -1,5 +1,9 @@
+// lib/features/chat/bloc/chat_states.dart
 
 import 'package:equatable/equatable.dart';
+
+import '../models/chat.dart';
+import '../models/message.dart';
 
 abstract class ChatState extends Equatable {
   const ChatState();
@@ -13,28 +17,22 @@ class ChatInitial extends ChatState {}
 class ChatLoading extends ChatState {}
 
 class ChatsLoaded extends ChatState {
-  final List<Map<String, dynamic>> chats;
-  final bool hasMore;
+  final List<Chat> chats;
 
-  const ChatsLoaded({
-    required this.chats,
-    this.hasMore = false,
-  });
+  const ChatsLoaded({required this.chats});
 
   @override
-  List<Object> get props => [chats, hasMore];
+  List<Object> get props => [chats];
 }
 
 class MessagesLoaded extends ChatState {
   final String chatId;
-  final List<Map<String, dynamic>> messages;
-  final Map<String, dynamic>? chatInfo;
+  final List<Message> messages;
   final bool isTyping;
 
   const MessagesLoaded({
     required this.chatId,
     required this.messages,
-    this.chatInfo,
     this.isTyping = false,
   });
 
@@ -44,12 +42,9 @@ class MessagesLoaded extends ChatState {
 
 class MessageSent extends ChatState {
   final String chatId;
-  final Map<String, dynamic> message;
+  final Message message;
 
-  const MessageSent({
-    required this.chatId,
-    required this.message,
-  });
+  const MessageSent({required this.chatId, required this.message});
 
   @override
   List<Object> get props => [chatId, message];
@@ -59,13 +54,20 @@ class MessageDeleted extends ChatState {
   final String chatId;
   final String messageId;
 
-  const MessageDeleted({
-    required this.chatId,
-    required this.messageId,
-  });
+  const MessageDeleted({required this.chatId, required this.messageId});
 
   @override
   List<Object> get props => [chatId, messageId];
+}
+
+class TypingStatusUpdated extends ChatState {
+  final String chatId;
+  final bool isTyping;
+
+  const TypingStatusUpdated({required this.chatId, required this.isTyping});
+
+  @override
+  List<Object> get props => [chatId, isTyping];
 }
 
 class ChatError extends ChatState {
@@ -75,17 +77,4 @@ class ChatError extends ChatState {
 
   @override
   List<Object> get props => [message];
-}
-
-class TypingStatusUpdated extends ChatState {
-  final String chatId;
-  final bool isTyping;
-
-  const TypingStatusUpdated({
-    required this.chatId,
-    required this.isTyping,
-  });
-
-  @override
-  List<Object> get props => [chatId, isTyping];
 }

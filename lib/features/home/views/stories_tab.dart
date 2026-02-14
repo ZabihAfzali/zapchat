@@ -41,11 +41,7 @@ class _StoriesTabState extends State<StoriesTab> {
       backgroundColor: Colors.black,
       appBar: const CustomAppBar(
         title: 'Stories',
-        actions: [
-          Icon(Icons.search, color: Colors.white, size: 28),
-          SizedBox(width: 8),
-          Icon(Icons.more_horiz, color: Colors.white, size: 28),
-        ],
+
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.yellow))

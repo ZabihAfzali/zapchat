@@ -1,7 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-/// Custom text field for authentication screens
+/// Custom text field for authentication screens with Cupertino visibility icon
 class AuthTextField extends StatefulWidget {
   final String hint;
   final TextEditingController controller;
@@ -21,14 +22,12 @@ class AuthTextField extends StatefulWidget {
 }
 
 class _AuthTextFieldState extends State<AuthTextField> {
-  bool _obscureText = true;
+  late bool _obscureText;
 
   @override
   void initState() {
     super.initState();
-    if (widget.isPassword) {
-      _obscureText = true;
-    }
+    _obscureText = widget.isPassword;
   }
 
   @override
@@ -55,14 +54,18 @@ class _AuthTextFieldState extends State<AuthTextField> {
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide.none,
         ),
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 16.w,
-          vertical: 14.h,
-        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
         suffixIcon: widget.isPassword
             ? IconButton(
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints(
+            minHeight: 24.h,
+            minWidth: 24.w,
+          ),
           icon: Icon(
-            _obscureText ? Icons.visibility_off : Icons.visibility,
+            _obscureText
+                ? CupertinoIcons.eye_slash
+                : CupertinoIcons.eye,
             color: Colors.black54,
             size: 22.sp,
           ),

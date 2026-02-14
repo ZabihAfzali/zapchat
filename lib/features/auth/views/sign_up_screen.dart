@@ -1,3 +1,5 @@
+
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 
 import '../../../core/constants/asset_constants.dart';
+import '../../../core/routes/route_names.dart';
 import '../../../core/widgets/auth_text_field.dart';
 import '../bloc/auth_events.dart';
 import '../bloc/auth_state.dart';
@@ -206,7 +209,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         onTap: () {
                           if(isLoading == false){
                             _handleSignUp();
-                          }
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              RouteNames.login,   // the new route
+                                  (route) => false,  // remove all previous routes
+                            );                          }
                           else{
                             print('is loading :: $isLoading');
                           }

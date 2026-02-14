@@ -1,5 +1,9 @@
+// lib/features/chat/bloc/chat_bloc.dart
+import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:zapchat/features/chat/models/chat.dart';
+import 'package:zapchat/features/chat/models/message.dart';
 import 'package:zapchat/features/chat/repository/chat_repository.dart';
 
 import 'chat_events.dart';
@@ -17,6 +21,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<MarkMessageAsRead>(_onMarkMessageAsRead);
     on<UpdateTypingStatus>(_onUpdateTypingStatus);
     on<DeleteMessage>(_onDeleteMessage);
+    on<ClearUnreadCount>(_onClearUnreadCount);
   }
 
   Future<void> _onLoadChats(
@@ -26,8 +31,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(ChatLoading());
 
     try {
-      final chats = await chatRepository.getChats();
-      emit(ChatsLoaded(chats: chats));
+      // Listen to real-time updates
+      await emit.forEach<List<Chat>>(
+        chatRepository.getChatsStream(),
+        onData: (chats) => ChatsLoaded(chats: chats),
+        onError: (error, stackTrace) => ChatError(message: error.toString()),
+      );
     } catch (e) {
       emit(ChatError(message: 'Failed to load chats: $e'));
     }
@@ -40,11 +49,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(ChatLoading());
 
     try {
-      final messages = await chatRepository.getMessages(event.chatId);
-      emit(MessagesLoaded(
-        chatId: event.chatId,
-        messages: messages,
-      ));
+      // Listen to real-time messages
+      await emit.forEach<List<Message>>(
+        chatRepository.getMessagesStream(event.chatId),
+        onData: (messages) => MessagesLoaded(
+          chatId: event.chatId,
+          messages: messages,
+        ),
+        onError: (error, stackTrace) => ChatError(message: error.toString()),
+      );
     } catch (e) {
       emit(ChatError(message: 'Failed to load messages: $e'));
     }
@@ -55,25 +68,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       Emitter<ChatState> emit,
       ) async {
     try {
-      await chatRepository.sendMessage(
+      await chatRepository.sendTextMessage(
         chatId: event.chatId,
         text: event.text,
+        receiverId: event.receiverId,
       );
-
-      // In real app, we'd get the actual message from Firestore
-      final newMessage = {
-        'id': 'msg_${DateTime.now().millisecondsSinceEpoch}',
-        'text': event.text,
-        'senderId': chatRepository.currentUserId,
-        'timestamp': DateTime.now(),
-        'type': 'text',
-        'status': 'sent',
-      };
-
-      emit(MessageSent(
-        chatId: event.chatId,
-        message: newMessage,
-      ));
     } catch (e) {
       emit(ChatError(message: 'Failed to send message: $e'));
     }
@@ -84,28 +83,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       Emitter<ChatState> emit,
       ) async {
     try {
-      await chatRepository.sendMessage(
+      await chatRepository.sendMediaMessage(
         chatId: event.chatId,
-        text: event.mediaType == 'image' ? '📷 Photo' : '🎥 Video',
-        mediaPath: event.filePath,
+        file: event.file,
         mediaType: event.mediaType,
+        receiverId: event.receiverId,
+        caption: event.caption,
       );
-
-      final newMessage = {
-        'id': 'msg_${DateTime.now().millisecondsSinceEpoch}',
-        'text': event.mediaType == 'image' ? '📷 Photo' : '🎥 Video',
-        'senderId': chatRepository.currentUserId,
-        'timestamp': DateTime.now(),
-        'type': 'media',
-        'mediaType': event.mediaType,
-        'mediaUrl': event.filePath, // In dev, this is the local path
-        'status': 'sent',
-      };
-
-      emit(MessageSent(
-        chatId: event.chatId,
-        message: newMessage,
-      ));
     } catch (e) {
       emit(ChatError(message: 'Failed to send media: $e'));
     }
@@ -117,13 +101,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ) async {
     try {
       await chatRepository.markAsRead(event.chatId, event.messageId);
-
-      // In a real app, we'd update the local state
-      // For now, just acknowledge
-      emit(MessagesLoaded(
-        chatId: event.chatId,
-        messages: const [],
-      ));
     } catch (e) {
       print('Failed to mark as read: $e');
     }
@@ -165,6 +142,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ));
     } catch (e) {
       emit(ChatError(message: 'Failed to delete message: $e'));
+    }
+  }
+
+  Future<void> _onClearUnreadCount(
+      ClearUnreadCount event,
+      Emitter<ChatState> emit,
+      ) async {
+    try {
+      await chatRepository.clearUnreadCount(event.chatId);
+    } catch (e) {
+      print('Failed to clear unread count: $e');
     }
   }
 }

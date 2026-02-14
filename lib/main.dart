@@ -12,6 +12,8 @@ import 'package:zapchat/features/chat/bloc/chat_events.dart';
 import 'package:zapchat/features/chat/repository/chat_repository.dart';
 import 'core/config/app_config.dart';
 import 'core/constants/app_colors.dart';
+import 'core/routes/app_route.dart';
+import 'core/routes/route_names.dart';
 import 'core/screens/auth_wrapper.dart';
 import 'core/services/storage_services.dart';
 import 'features/auth/bloc/auth_events.dart';
@@ -28,15 +30,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Check if we can use real services
-  print('🔧 App Config:');
-  print('   • Use Dev Storage: ${AppConfig.useDevStorage}');
-  print('   • Can Upload Media: ${AppConfig.canUploadMedia}');
-  print('   • Use Dev Chat Data: ${AppConfig.useDevChatData}');
 
-  if (AppConfig.useDevStorage) {
-    print('   ⚠️  Using development storage (no billing required)');
-  }
 
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
@@ -51,6 +45,7 @@ void main() async {
     systemNavigationBarColor: AppColors.background,
     systemNavigationBarIconBrightness: Brightness.light,
   ));
+
 
   runApp(const MyApp());
 }
@@ -76,7 +71,6 @@ class MyApp extends StatelessWidget {
         ),
         RepositoryProvider<ChatRepository>(
           create: (context) => ChatRepository(
-            storageService: context.read<StorageService>(),
           ),
         ),
       ],
@@ -101,9 +95,12 @@ class MyApp extends StatelessWidget {
             return MaterialApp(
               title: 'ZapChat',
               theme: AppTheme.darkTheme,
-              home: const AuthWrapper(),
               debugShowCheckedModeBanner: false,
+
+              initialRoute: RouteNames.splash,
+              onGenerateRoute: AppRoutes.generateRoute,
             );
+
           },
         ),
       ),

@@ -1,107 +1,337 @@
+// lib/features/chat/repository/chat_repository.dart
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:zapchat/core/config/app_config.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:zapchat/features/chat/models/chat.dart';
+import 'package:zapchat/features/chat/models/message.dart';
 
-import '../../../core/services/storage_services.dart';
+import '../models/chat_model.dart';
 
 class ChatRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final StorageService _storageService;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  ChatRepository({StorageService? storageService})
-      : _storageService = storageService ??
-      (AppConfig.useDevStorage ? DevStorageService() : FirebaseStorageService());
+  String get currentUserId => _auth.currentUser?.uid ?? '';
 
-  // Get current user ID
-  String get currentUserId => _auth.currentUser?.uid ?? 'user1'; // Default for dev
-
-  // Development data for testing
-  final List<Map<String, dynamic>> _devChats = [
-     {
-      'id': 'user2',
-      'name': 'Emma Wilson',
-      'profilePicture': 'https://randomuser.me/api/portraits/women/1.jpg',
-      'isOnline': true,
-      'hasStory': true, // Add this field
-    },
-  ];
-
-  final List<Map<String, dynamic>> _devMessages = [
-    {
-      'id': 'msg_1',
-      'senderId': 'user1',
-      'text': 'Hello!',
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 10))??'',
-      'type': 'text',
-      'status': 'read',
-    },
-    {
-      'id': 'msg_2',
-      'senderId': 'user2',
-      'text': 'Hi there! How are you?',
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 8)),
-      'type': 'text',
-      'status': 'read',
-    },
-    {
-      'id': 'msg_3',
-      'senderId': 'user1',
-      'text': 'I\'m good! Working on ZapChat 😊',
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 5)),
-      'type': 'text',
-      'status': 'delivered',
-    },
-    {
-      'id': 'msg_4',
-      'senderId': 'user1',
-      'mediaUrl': 'https://picsum.photos/300/400',
-      'mediaType': 'image',
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 3)),
-      'type': 'media',
-      'status': 'sent',
-    },
-  ];
-
-  // MARK AS READ METHOD
-  Future<void> markAsRead(String chatId, String messageId) async {
-    if (AppConfig.useDevChatData) {
-      // Simulate marking as read in dev mode
-      await Future.delayed(const Duration(milliseconds: 300));
-      print('📖 DEV: Marked message $messageId as read');
-      return;
+  // Get chats stream - NO INDEX NEEDED
+  Stream<List<Chat>> getChatsStream() {
+    if (currentUserId.isEmpty) {
+      return Stream.value([]);
     }
 
-    // Real Firestore implementation
+    return _firestore
+        .collection('chats')
+        .where('participants', arrayContains: currentUserId)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      final chats = <Chat>[];
+
+      for (var doc in snapshot.docs) {
+        try {
+          final participants = List<String>.from(doc['participants'] ?? []);
+          final otherUserId =
+          participants.firstWhere((id) => id != currentUserId);
+
+          final userDoc =
+          await _firestore.collection('users').doc(otherUserId).get();
+          final otherUser = userDoc.exists
+              ? ChatUser.fromFirestore(userDoc)
+              : null;
+
+          final messagesSnapshot = await _firestore
+              .collection('chats')
+              .doc(doc.id)
+              .collection('messages')
+              .where('readBy', arrayContains: currentUserId)
+              .count()
+              .get();
+
+          final totalMessagesSnapshot = await _firestore
+              .collection('chats')
+              .doc(doc.id)
+              .collection('messages')
+              .count()
+              .get();
+
+          final readCount = messagesSnapshot.count ?? 0;
+          final totalCount = totalMessagesSnapshot.count ?? 0;
+          final unreadCount = totalCount - readCount;
+
+          chats.add(Chat.fromFirestore(doc, otherUser, unreadCount));
+        } catch (e) {
+          print('Error processing chat doc: $e');
+          continue;
+        }
+      }
+
+      // Sort in memory
+      chats.sort((a, b) {
+        if (a.lastMessageTime == null) return 1;
+        if (b.lastMessageTime == null) return -1;
+        return b.lastMessageTime!.compareTo(a.lastMessageTime!);
+      });
+
+      return chats;
+    });
+  }
+
+  // Get messages stream
+  Stream<List<Message>> getMessagesStream(String chatId) {
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => Message.fromFirestore(doc))
+          .where((message) => !message.deletedFor.contains(currentUserId))
+          .toList();
+    });
+  }
+
+  // Get or create chat
+  Future<String> getOrCreateChat(String otherUserId) async {
+    if (currentUserId.isEmpty) throw Exception('User not authenticated');
+
     try {
-      await _firestore
+      final querySnapshot = await _firestore
+          .collection('chats')
+          .where('participants', arrayContains: currentUserId)
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        final participants = List<String>.from(doc['participants'] ?? []);
+        if (participants.contains(otherUserId)) {
+          return doc.id;
+        }
+      }
+
+      final chatRef = await _firestore.collection('chats').add({
+        'participants': [currentUserId, otherUserId],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessage': '',
+        'lastMessageSender': '',
+        'unreadCount': 0,
+        'typing': {},
+        'isMuted': false,
+        'isPinned': false,
+      });
+
+      return chatRef.id;
+    } catch (e) {
+      print('Error creating chat: $e');
+      rethrow;
+    }
+  }
+
+  // Get all users - EXCLUDES CURRENT USER
+  Future<List<ChatUser>> getAllUsers() async {
+    if (currentUserId.isEmpty) return [];
+
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .limit(100)
+          .get();
+
+      final users = snapshot.docs
+          .where((doc) => doc.id != currentUserId) // Current user excluded
+          .map((doc) => ChatUser.fromFirestore(doc))
+          .toList();
+
+      users.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+      return users;
+    } catch (e) {
+      print('Error getting users: $e');
+      return [];
+    }
+  }
+
+  // Get recent chat users - EXCLUDES CURRENT USER
+  Future<List<ChatUser>> getRecentChatUsers() async {
+    if (currentUserId.isEmpty) return [];
+
+    try {
+      final chatsSnapshot = await _firestore
+          .collection('chats')
+          .where('participants', arrayContains: currentUserId)
+          .limit(30)
+          .get();
+
+      final List<MapEntry<ChatUser, DateTime>> recentUsersWithTime = [];
+
+      for (var doc in chatsSnapshot.docs) {
+        if (doc['lastMessage'] == null ||
+            doc['lastMessage'] == '' ||
+            doc['lastMessageTime'] == null) {
+          continue;
+        }
+
+        final participants = List<String>.from(doc['participants'] ?? []);
+        final otherUserId = participants.firstWhere((id) => id != currentUserId);
+
+        if (otherUserId == currentUserId) continue; // Safety check
+
+        final lastMessageTime = (doc['lastMessageTime'] as Timestamp).toDate();
+
+        final userDoc = await _firestore.collection('users').doc(otherUserId).get();
+        if (userDoc.exists) {
+          recentUsersWithTime.add(
+              MapEntry(ChatUser.fromFirestore(userDoc), lastMessageTime)
+          );
+        }
+      }
+
+      recentUsersWithTime.sort((a, b) => b.value.compareTo(a.value));
+
+      return recentUsersWithTime
+          .take(20)
+          .map((entry) => entry.key)
+          .toList();
+    } catch (e) {
+      print('Error getting recent chats: $e');
+      return [];
+    }
+  }
+
+  // Send text message
+  Future<void> sendTextMessage({
+    required String chatId,
+    required String text,
+    required String receiverId,
+  }) async {
+    try {
+      final messageData = {
+        'senderId': currentUserId,
+        'text': text,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'text',
+        'status': 'sent',
+        'readBy': [currentUserId],
+        'createdAt': FieldValue.serverTimestamp(),
+        'isDeleted': false,
+        'deletedFor': [],
+      };
+
+      final batch = _firestore.batch();
+
+      final messageRef = _firestore
           .collection('chats')
           .doc(chatId)
           .collection('messages')
-          .doc(messageId)
-          .update({
+          .doc();
+      batch.set(messageRef, messageData);
+
+      final chatRef = _firestore.collection('chats').doc(chatId);
+      batch.update(chatRef, {
+        'lastMessage': text,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageSender': currentUserId,
+        'unreadCount': FieldValue.increment(1),
+      });
+
+      await batch.commit();
+    } catch (e) {
+      print('Error sending message: $e');
+      rethrow;
+    }
+  }
+
+  // Send media message
+  Future<void> sendMediaMessage({
+    required String chatId,
+    required File file,
+    required String mediaType,
+    required String receiverId,
+    String? caption,
+  }) async {
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
+      final storageRef = _storage
+          .ref()
+          .child('chat_media')
+          .child(chatId)
+          .child(fileName);
+
+      await storageRef.putFile(file);
+      final mediaUrl = await storageRef.getDownloadURL();
+
+      final messageData = {
+        'senderId': currentUserId,
+        'text': caption ?? (mediaType == 'image' ? '📷 Photo' : '🎥 Video'),
+        'mediaUrl': mediaUrl,
+        'mediaType': mediaType,
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'media',
+        'status': 'sent',
+        'readBy': [currentUserId],
+        'createdAt': FieldValue.serverTimestamp(),
+        'isDeleted': false,
+        'deletedFor': [],
+      };
+
+      final batch = _firestore.batch();
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc();
+      batch.set(messageRef, messageData);
+
+      final chatRef = _firestore.collection('chats').doc(chatId);
+      batch.update(chatRef, {
+        'lastMessage': mediaType == 'image' ? '📷 Photo' : '🎥 Video',
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageSender': currentUserId,
+        'unreadCount': FieldValue.increment(1),
+      });
+
+      await batch.commit();
+    } catch (e) {
+      print('Error sending media: $e');
+      rethrow;
+    }
+  }
+
+  // Mark as read
+  Future<void> markAsRead(String chatId, String messageId) async {
+    try {
+      final batch = _firestore.batch();
+
+      final messageRef = _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId);
+      batch.update(messageRef, {
         'readBy': FieldValue.arrayUnion([currentUserId]),
         'status': 'read',
       });
+
+      final chatRef = _firestore.collection('chats').doc(chatId);
+      batch.update(chatRef, {
+        'unreadCount': FieldValue.increment(-1),
+      });
+
+      await batch.commit();
     } catch (e) {
       print('Error marking as read: $e');
     }
   }
 
-  // UPDATE TYPING STATUS METHOD
+  // Update typing status
   Future<void> updateTypingStatus(String chatId, bool isTyping) async {
-    if (AppConfig.useDevChatData) {
-      // Simulate typing status in dev mode
-      await Future.delayed(const Duration(milliseconds: 200));
-      print('⌨️  DEV: User ${isTyping ? 'started' : 'stopped'} typing in chat $chatId');
-      return;
-    }
-
-    // Real Firestore implementation
     try {
       await _firestore.collection('chats').doc(chatId).update({
-        'typing.${currentUserId}': isTyping,
+        'typing.$currentUserId': isTyping,
         'typingLastUpdate': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -109,19 +339,10 @@ class ChatRepository {
     }
   }
 
-  // DELETE MESSAGE METHOD
+  // Delete message
   Future<void> deleteMessage(String chatId, String messageId, bool forEveryone) async {
-    if (AppConfig.useDevChatData) {
-      // Simulate deletion in dev mode
-      await Future.delayed(const Duration(milliseconds: 300));
-      print('🗑️  DEV: Deleted message $messageId from chat $chatId');
-      return;
-    }
-
-    // Real Firestore implementation
     try {
       if (forEveryone) {
-        // Delete for everyone
         await _firestore
             .collection('chats')
             .doc(chatId)
@@ -129,7 +350,6 @@ class ChatRepository {
             .doc(messageId)
             .delete();
       } else {
-        // Delete only for current user (soft delete)
         await _firestore
             .collection('chats')
             .doc(chatId)
@@ -142,119 +362,18 @@ class ChatRepository {
       }
     } catch (e) {
       print('Error deleting message: $e');
+      rethrow;
     }
   }
 
-  // Get chats (development version)
-  Future<List<Map<String, dynamic>>> getChats() async {
-    if (AppConfig.useDevChatData) {
-      await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-      return _devChats;
-    }
-
-    // Real Firestore implementation would go here
-    final user = _auth.currentUser;
-    if (user == null) return [];
-
-    final snapshot = await _firestore
-        .collection('chats')
-        .where('participants', arrayContains: user.uid)
-        .orderBy('lastMessageTime', descending: true)
-        .get();
-
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
-  }
-
-  // Get messages (development version)
-  Future<List<Map<String, dynamic>>> getMessages(String chatId) async {
-    if (AppConfig.useDevChatData) {
-      await Future.delayed(const Duration(seconds: 1));
-      return _devMessages;
-    }
-
-    // Real implementation
-    final snapshot = await _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .limit(50)
-        .get();
-
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      return data;
-    }).toList();
-  }
-
-  // Send message (works in dev mode)
-  Future<void> sendMessage({
-    required String chatId,
-    required String text,
-    String? mediaPath,
-    String? mediaType,
-  }) async {
-    if (AppConfig.useDevChatData) {
-      // Add to dev messages list
-      _devMessages.insert(0, {
-        'id': 'msg_${DateTime.now().millisecondsSinceEpoch}',
-        'senderId': currentUserId,
-        'text': text,
-        'timestamp': DateTime.now(),
-        'type': mediaPath != null ? 'media' : 'text',
-        'mediaUrl': mediaPath,
-        'mediaType': mediaType,
-        'status': 'sent',
+  // Clear unread count
+  Future<void> clearUnreadCount(String chatId) async {
+    try {
+      await _firestore.collection('chats').doc(chatId).update({
+        'unreadCount': 0,
       });
-
-      // Update chat last message
-      final chatIndex = _devChats.indexWhere((c) => c['id'] == chatId);
-      if (chatIndex != -1) {
-        final chat = _devChats[chatIndex];
-        chat['lastMessage'] = text;
-        chat['lastMessageTime'] = DateTime.now();
-        chat['unreadCount'] = (chat['unreadCount'] as int) + 1;
-      }
-
-      return;
+    } catch (e) {
+      print('Error clearing unread count: $e');
     }
-
-    // Real Firestore implementation
-    final messageData = {
-      'senderId': currentUserId,
-      'text': text,
-      'timestamp': FieldValue.serverTimestamp(),
-      'type': 'text',
-      'status': 'sent',
-    };
-
-    if (mediaPath != null && AppConfig.canUploadMedia) {
-      // Upload media to storage
-      final mediaUrl = mediaType == 'image'
-          ? await _storageService.uploadChatImage(mediaPath, chatId)
-          : await _storageService.uploadChatVideo(mediaPath, chatId);
-
-      messageData['mediaUrl'] = mediaUrl;
-      messageData['mediaType'] = mediaType!;
-      messageData['type'] = 'media';
-    }
-
-    await _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .add(messageData);
-
-    // Update chat document
-    await _firestore.collection('chats').doc(chatId).update({
-      'lastMessage': text,
-      'lastMessageTime': FieldValue.serverTimestamp(),
-      'lastMessageSender': currentUserId,
-    });
   }
 }

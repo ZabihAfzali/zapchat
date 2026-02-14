@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:zapchat/core/widgets/custom_appbar.dart';
+import 'package:zapchat/features/chat/views/chat_list_screen.dart';
+import 'package:zapchat/features/chat/views/chat_screen.dart';
 import 'package:zapchat/features/home/repository/home_repository.dart';
 
 import '../../../core/widgets/custom_nav_bar.dart';
-import 'home_tab.dart';
-import 'chat_tab.dart';
 import 'camera_tab.dart';
 import 'stories_tab.dart';
-import 'profile_tab.dart';
+import '../../profile/profile_tab.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -30,8 +31,8 @@ class _MainScreenState extends State<MainScreen> {
 
   void _initializeTabs() {
     _tabs.addAll([
-      HomeTab(homeRepository: _homeRepository),
-      ChatTab(homeRepository: _homeRepository),
+      ChatListScreen(),
+      ChatListScreen(),
       const CameraTab(),
       StoriesTab(homeRepository: _homeRepository),
       ProfileTab(homeRepository: _homeRepository),
@@ -54,5 +55,21 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
       ),
     );
+  }
+
+  String appbarTitle(){
+    if(_selectedIndex==0){
+      return 'Chat';
+    }
+    if(_selectedIndex==1){
+      return 'Chat';
+    }
+    if(_selectedIndex==2){
+      return 'Camera';
+    }
+    if(_selectedIndex==3){
+      return 'Profile';
+    }
+    return '';
   }
 }

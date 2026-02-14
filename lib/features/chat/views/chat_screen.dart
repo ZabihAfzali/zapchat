@@ -1,14 +1,23 @@
-// chat_screen.dart
+// lib/features/chat/views/chat_screen.dart
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:zapchat/core/utils/svg_utils.dart';
 import 'package:zapchat/features/chat/bloc/chat_bloc.dart';
 import 'package:zapchat/features/chat/bloc/chat_events.dart';
 import 'package:zapchat/features/chat/bloc/chat_states.dart';
+import 'package:zapchat/features/chat/models/message.dart';
+import 'package:zapchat/features/chat/widgets/chat_bubble.dart';
+
+import '../models/chat_model.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
-  final Map<String, dynamic> user;
+  final ChatUser user;
 
   const ChatScreen({
     super.key,
@@ -23,12 +32,14 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
   bool _isTyping = false;
+  bool _isSending = false;
+  List<Message> _cachedMessages = [];
 
   @override
   void initState() {
     super.initState();
-    // Load messages for this chat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatBloc>().add(LoadMessages(chatId: widget.chatId));
     });
@@ -38,6 +49,17 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
+
+    if (_isTyping) {
+      context.read<ChatBloc>().add(
+        UpdateTypingStatus(
+          chatId: widget.chatId,
+          isTyping: false,
+        ),
+      );
+    }
+
     super.dispose();
   }
 
@@ -53,199 +75,272 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _pickAndSendMedia(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source);
+
+    if (pickedFile != null) {
+      setState(() => _isSending = true);
+
+      context.read<ChatBloc>().add(
+        SendMediaMessage(
+          chatId: widget.chatId,
+          file: File(pickedFile.path),
+          mediaType: 'image',
+          receiverId: widget.user.uid,
+        ),
+      );
+
+      setState(() => _isSending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final userName = widget.user['name'] as String? ?? 'Unknown';
-    final profilePicture = widget.user['profilePicture'] as String?;
-    final isOnline = (widget.user['isOnline'] as bool?) ?? false;
-    final userId = widget.user['id'] as String? ?? '';
-
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: Colors.white,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
+      navigationBar: _buildNavigationBar(),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            // Profile picture with story ring
-            Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Colors.yellow, Colors.orange, Colors.red],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: CircleAvatar(
-                radius: 18,
-                backgroundImage: profilePicture != null && profilePicture.isNotEmpty
-                    ? NetworkImage(profilePicture)
-                    : null,
-                backgroundColor: Colors.grey[800],
-                child: profilePicture == null || profilePicture.isEmpty
-                    ? const Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: 20,
-                )
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  BlocBuilder<ChatBloc, ChatState>(
-                    builder: (context, state) {
-                      if (state is MessagesLoaded &&
-                          state.chatId == widget.chatId &&
-                          state.isTyping) {
-                        return Text(
-                          'Typing...',
-                          style: TextStyle(
-                            color: Colors.yellow[300],
-                            fontSize: 12,
-                          ),
-                        );
-                      }
-                      return Text(
-                        isOnline ? 'Online' : 'Tap to view',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.videocam, color: Colors.white),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.phone, color: Colors.white),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: BlocBuilder<ChatBloc, ChatState>(
-              builder: (context, state) {
-                if (state is MessagesLoaded && state.chatId == widget.chatId) {
-                  final messages = state.messages;
-
-                  // Auto-scroll when new messages come
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
+              child: BlocConsumer<ChatBloc, ChatState>(
+                listenWhen: (previous, current) {
+                  if (current is MessagesLoaded && current.chatId == widget.chatId) {
+                    return previous is! MessagesLoaded ||
+                        previous.messages.length != current.messages.length;
+                  }
+                  return false;
+                },
+                listener: (context, state) {
+                  if (state is MessagesLoaded && state.chatId == widget.chatId) {
+                    _cachedMessages = state.messages;
                     _scrollToBottom();
-                  });
+                  }
+                },
+                buildWhen: (previous, current) {
+                  if (current is MessagesLoaded && current.chatId == widget.chatId) {
+                    return previous is! MessagesLoaded ||
+                        previous.messages.hashCode != current.messages.hashCode;
+                  }
+                  return false;
+                },
+                builder: (context, state) {
+                  List<Message> messages = _cachedMessages;
 
-                  if (messages.isEmpty) {
+                  if (state is MessagesLoaded && state.chatId == widget.chatId) {
+                    messages = state.messages;
+                  }
+
+                  if (state is ChatLoading && messages.isEmpty) {
                     return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.chat,
-                            size: 60,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'No messages yet',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Start the conversation!',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+                      child: CupertinoActivityIndicator(
+                        radius: 16,
+                        color: CupertinoColors.systemYellow,
                       ),
                     );
                   }
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final senderId = message['senderId'] as String? ?? '';
-                      // TODO: Replace 'user1' with actual current user ID
-                      // You should get this from your auth system
-                      final currentUserId = 'user1';
-                      final isMe = senderId == currentUserId;
+                  if (messages.isEmpty) {
+                    return _buildEmptyState();
+                  }
 
-                      return ChatBubble(
-                        message: message,
-                        isMe: isMe,
-                        onTap: () {
-                          // Show message options
-                          _showMessageOptions(message);
-                        },
-                      );
-                    },
-                  );
-                } else if (state is ChatLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Colors.yellow),
-                  );
-                } else if (state is ChatError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        state.message,
-                        style: const TextStyle(color: Colors.white),
-                        textAlign: TextAlign.center,
-                      ),
+                  return CupertinoScrollbar(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final message = messages[index];
+                        final isMe = message.senderId ==
+                            context.read<ChatBloc>().chatRepository.currentUserId;
+
+                        return ChatBubble(
+                          message: message,
+                          isMe: isMe,
+                          onTap: () => _showMessageOptions(message),
+                        );
+                      },
                     ),
                   );
-                }
-                return const SizedBox();
-              },
+                },
+              ),
+            ),
+            if (_isSending)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CupertinoActivityIndicator(
+                  radius: 12,
+                  color: CupertinoColors.systemYellow,
+                ),
+              ),
+            _buildMessageInput(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  CupertinoNavigationBar _buildNavigationBar() {
+    return CupertinoNavigationBar(
+      backgroundColor: Colors.black,
+      border: const Border(
+        bottom: BorderSide(
+          color: Colors.grey,
+          width: 0.5,
+        ),
+      ),
+      leading: CupertinoButton(
+        padding: EdgeInsets.zero,
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(
+          CupertinoIcons.back,
+          color: CupertinoColors.systemYellow,
+          size: 24,
+        ),
+      ),
+      middle: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () {},
+            child: SvgUtils.buildAvatar(
+              radius: 16,
+              hasStory: widget.user.hasStory,
+              isOnline: widget.user.isOnline,
             ),
           ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.user.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              BlocBuilder<ChatBloc, ChatState>(
+                buildWhen: (previous, current) {
+                  if (current is TypingStatusUpdated && current.chatId == widget.chatId) {
+                    return previous is! TypingStatusUpdated ||
+                        previous.isTyping != current.isTyping;
+                  }
+                  return false;
+                },
+                builder: (context, state) {
+                  if (state is TypingStatusUpdated &&
+                      state.chatId == widget.chatId &&
+                      state.isTyping) {
+                    return Text(
+                      'Typing...',
+                      style: TextStyle(
+                        color: CupertinoColors.systemYellow.withOpacity(0.7),
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    );
+                  }
+                  return Text(
+                    widget.user.isOnline ? 'Online' :
+                    widget.user.lastSeen != null
+                        ? 'Last seen ${_formatLastSeen(widget.user.lastSeen!)}'
+                        : 'Tap to view',
+                    style: TextStyle(
+                      color: widget.user.isOnline
+                          ? Colors.green
+                          : Colors.grey,
+                      fontSize: 12,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () {},
+            child: const Icon(
+              CupertinoIcons.video_camera_solid,
+              color: CupertinoColors.systemYellow,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () {},
+            child: const Icon(
+              CupertinoIcons.phone_fill,
+              color: CupertinoColors.systemYellow,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: _showChatOptions,
+            child: const Icon(
+              CupertinoIcons.ellipsis,
+              color: CupertinoColors.systemYellow,
+              size: 20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-          // Message input bar
-          _buildMessageInput(),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey[900],
+              border: Border.all(
+                color: Colors.grey[800]!,
+                width: 2,
+              ),
+            ),
+            child: SvgUtils.getPersonIcon(
+              width: 50,
+              height: 50,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Say hi to ${widget.user.name.split(' ')[0]}!',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Send a message to start the conversation',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
         ],
       ),
     );
@@ -254,54 +349,74 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageInput() {
     return Container(
       padding: const EdgeInsets.all(8),
-      color: Colors.black,
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Camera button
-          IconButton(
-            icon: const Icon(Icons.camera_alt, color: Colors.yellow),
-            onPressed: () {
-              // Open camera
-              _sendMediaMessage('image');
-            },
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () => _pickAndSendMedia(ImageSource.camera),
+            child: const Icon(
+              CupertinoIcons.camera_fill,
+              color: CupertinoColors.systemYellow,
+              size: 24,
+            ),
           ),
-
-          // Gallery button
-          IconButton(
-            icon: const Icon(Icons.photo_library, color: Colors.yellow),
-            onPressed: () {
-              // Open gallery
-              _sendMediaMessage('image');
-            },
+          const SizedBox(width: 8),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: () => _pickAndSendMedia(ImageSource.gallery),
+            child: const Icon(
+              CupertinoIcons.photo_fill,
+              color: CupertinoColors.systemYellow,
+              size: 24,
+            ),
           ),
-
-          // Text input
+          const SizedBox(width: 8),
           Expanded(
             child: Container(
+              constraints: BoxConstraints(
+                maxHeight: 100.h,
+              ),
               decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(25),
+                color: Colors.grey[800],
+                borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: CupertinoTextField(
                       controller: _messageController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Send a chat...',
-                        hintStyle: TextStyle(color: Colors.grey),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                      focusNode: _focusNode,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      placeholder: 'Send a chat...',
+                      placeholderStyle: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.transparent,
                         ),
                       ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       onChanged: (text) {
-                        // Update typing status
                         final shouldBeTyping = text.isNotEmpty;
                         if (_isTyping != shouldBeTyping) {
-                          _isTyping = shouldBeTyping;
+                          setState(() => _isTyping = shouldBeTyping);
                           context.read<ChatBloc>().add(
                             UpdateTypingStatus(
                               chatId: widget.chatId,
@@ -310,28 +425,32 @@ class _ChatScreenState extends State<ChatScreen> {
                           );
                         }
                       },
-                      onSubmitted: (text) {
-                        _sendTextMessage();
-                      },
+                      onSubmitted: (_) => _sendTextMessage(),
                     ),
                   ),
-
-                  // Voice message button
-                  IconButton(
-                    icon: const Icon(Icons.keyboard_voice, color: Colors.yellow),
-                    onPressed: () {
-                      // Start voice recording
-                    },
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {},
+                    child: const Icon(
+                      CupertinoIcons.mic_fill,
+                      color: CupertinoColors.systemYellow,
+                      size: 24,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                 ],
               ),
             ),
           ),
-
-          // Send button
-          IconButton(
-            icon: const Icon(Icons.send, color: Colors.yellow),
+          const SizedBox(width: 8),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
             onPressed: _sendTextMessage,
+            child: const Icon(
+              CupertinoIcons.paperplane_fill,
+              color: CupertinoColors.systemYellow,
+              size: 24,
+            ),
           ),
         ],
       ),
@@ -340,25 +459,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _sendTextMessage() {
     final text = _messageController.text.trim();
-    if (text.isNotEmpty) {
-      final receiverId = widget.user['id'] as String? ?? '';
-      if (receiverId.isEmpty) {
-        // Show error or handle missing receiver ID
-        return;
-      }
+    if (text.isNotEmpty && !_isSending) {
+      setState(() => _isSending = true);
 
       context.read<ChatBloc>().add(
         SendTextMessage(
           chatId: widget.chatId,
           text: text,
-          receiverId: receiverId,
+          receiverId: widget.user.uid,
         ),
       );
-      _messageController.clear();
 
-      // Stop typing status
+      _messageController.clear();
+      setState(() => _isSending = false);
+
       if (_isTyping) {
-        _isTyping = false;
+        setState(() => _isTyping = false);
         context.read<ChatBloc>().add(
           UpdateTypingStatus(
             chatId: widget.chatId,
@@ -369,95 +485,200 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _sendMediaMessage(String mediaType) {
-    final receiverId = widget.user['id'] as String? ?? '';
-    if (receiverId.isEmpty) {
-      // Show error or handle missing receiver ID
-      return;
-    }
+  void _showMessageOptions(Message message) {
+    final isMe = message.senderId == context.read<ChatBloc>().chatRepository.currentUserId;
+    final isDeleted = message.isDeleted;
 
-    // In real app, you'd pick an image/video
-    // For demo, using a dummy path
-    context.read<ChatBloc>().add(
-      SendMediaMessage(
-        chatId: widget.chatId,
-        filePath: 'dummy_path.jpg',
-        mediaType: mediaType,
-        receiverId: receiverId,
-      ),
-    );
-  }
+    if (isDeleted) return;
 
-  void _showMessageOptions(Map<String, dynamic> message) {
-    showModalBottomSheet(
+    showCupertinoModalPopup(
       context: context,
-      backgroundColor: Colors.grey[900],
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.reply, color: Colors.white),
-                title: const Text('Reply', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  Navigator.pop(context);
-                },
+        return CupertinoActionSheet(
+          title: Text(
+            'Message Options',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            if (isMe) ...[
+              _buildActionSheetButton(
+                label: 'Reply',
+                icon: CupertinoIcons.arrowshape_turn_up_left,
+                onPressed: () => Navigator.pop(context),
               ),
-              ListTile(
-                leading: const Icon(Icons.copy, color: Colors.white),
-                title: const Text('Copy', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  Navigator.pop(context);
-                  final text = message['text'] as String?;
-                  if (text != null && text.isNotEmpty) {
-                    // Copy to clipboard
-                  }
-                },
+              _buildActionSheetButton(
+                label: 'Info',
+                icon: CupertinoIcons.info_circle,
+                onPressed: () => Navigator.pop(context),
               ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
-                onTap: () {
+            ],
+            _buildActionSheetButton(
+              label: 'Copy',
+              icon: CupertinoIcons.doc_on_doc,
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+            _buildActionSheetButton(
+              label: 'Share',
+              icon: CupertinoIcons.share,
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+            if (isMe)
+              _buildActionSheetButton(
+                label: 'Delete',
+                icon: CupertinoIcons.delete,
+                isDestructive: true,
+                onPressed: () {
                   Navigator.pop(context);
                   _deleteMessage(message);
                 },
               ),
-              const SizedBox(height: 8),
-            ],
+            if (!isMe)
+              _buildActionSheetButton(
+                label: 'Report',
+                icon: CupertinoIcons.flag,
+                isDestructive: true,
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: CupertinoColors.systemYellow,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         );
       },
     );
   }
 
-  void _deleteMessage(Map<String, dynamic> message) {
-    final messageId = message['id'] as String?;
-    if (messageId == null || messageId.isEmpty) {
-      return;
-    }
+  CupertinoActionSheetAction _buildActionSheetButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+    bool isDestructive = false,
+  }) {
+    return CupertinoActionSheetAction(
+      onPressed: onPressed,
+      isDestructiveAction: isDestructive,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: isDestructive
+                ? CupertinoColors.systemRed
+                : CupertinoColors.systemYellow,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: isDestructive
+                  ? CupertinoColors.systemRed
+                  : Colors.white,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    showDialog(
+  void _showChatOptions() {
+    showCupertinoModalPopup(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: const Text(
-            'Delete Message',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            'Delete for everyone or just for you?',
-            style: TextStyle(color: Colors.white70),
+        return CupertinoActionSheet(
+          title: Text(
+            widget.user.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+            ),
           ),
           actions: [
-            TextButton(
+            _buildActionSheetButton(
+              label: 'Mute',
+              icon: CupertinoIcons.bell_slash,
+              onPressed: () => Navigator.pop(context),
+            ),
+            _buildActionSheetButton(
+              label: 'Pin',
+              icon: CupertinoIcons.pin,
+              onPressed: () => Navigator.pop(context),
+            ),
+            _buildActionSheetButton(
+              label: 'Clear chat',
+              icon: CupertinoIcons.delete,
+              isDestructive: true,
+              onPressed: () => Navigator.pop(context),
+            ),
+            _buildActionSheetButton(
+              label: 'Block',
+              icon: CupertinoIcons.person_crop_circle_badge_xmark,
+              isDestructive: true,
+              onPressed: () => Navigator.pop(context),
+            ),
+            _buildActionSheetButton(
+              label: 'Report',
+              icon: CupertinoIcons.flag,
+              isDestructive: true,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: CupertinoColors.systemYellow,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _deleteMessage(Message message) {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: const Text('Delete Message'),
+          content: const Text(
+            'Delete this message for everyone or just for you?',
+            style: TextStyle(color: Colors.grey),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            CupertinoDialogAction(
               onPressed: () {
                 Navigator.pop(context);
                 context.read<ChatBloc>().add(
                   DeleteMessage(
                     chatId: widget.chatId,
-                    messageId: messageId,
+                    messageId: message.id,
                     forEveryone: false,
                   ),
                 );
@@ -467,20 +688,21 @@ class _ChatScreenState extends State<ChatScreen> {
                 style: TextStyle(color: Colors.white),
               ),
             ),
-            TextButton(
+            CupertinoDialogAction(
               onPressed: () {
                 Navigator.pop(context);
                 context.read<ChatBloc>().add(
                   DeleteMessage(
                     chatId: widget.chatId,
-                    messageId: messageId,
+                    messageId: message.id,
                     forEveryone: true,
                   ),
                 );
               },
+              isDestructiveAction: true,
               child: const Text(
                 'Delete for everyone',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: CupertinoColors.systemRed),
               ),
             ),
           ],
@@ -488,150 +710,16 @@ class _ChatScreenState extends State<ChatScreen> {
       },
     );
   }
-}
 
-class ChatBubble extends StatelessWidget {
-  final Map<String, dynamic> message;
-  final bool isMe;
-  final VoidCallback onTap;
+  String _formatLastSeen(DateTime lastSeen) {
+    final now = DateTime.now();
+    final difference = now.difference(lastSeen);
 
-  const ChatBubble({
-    super.key,
-    required this.message,
-    required this.isMe,
-    required this.onTap,
-  });
-
-  DateTime? _parseTime(dynamic time) {
-    if (time == null) return null;
-
-    if (time is DateTime) {
-      return time;
-    } else if (time is Timestamp) {
-      return time.toDate();
-    } else if (time is String) {
-      try {
-        return DateTime.parse(time);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  }
-
-  String _formatTime(DateTime? time) {
-    if (time == null) return '--:--';
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final time = _parseTime(message['timestamp']);
-    final messageText = message['text'] as String? ?? '';
-    final messageType = message['type'] as String? ?? 'text';
-    final mediaUrl = message['mediaUrl'] as String?;
-    final status = message['status'] as String?;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: EdgeInsets.only(
-          bottom: 12,
-          left: isMe ? 60 : 0,
-          right: isMe ? 0 : 60,
-        ),
-        child: Align(
-          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: Column(
-            crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              // Message bubble
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.7,
-                ),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isMe ? Colors.blue : Colors.grey[900],
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: messageType == 'media'
-                    ? _buildMediaMessage(mediaUrl, messageText)
-                    : Text(
-                  messageText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-
-              // Time and status
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _formatTime(time),
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 11,
-                      ),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        status == 'read' ? Icons.done_all : Icons.done,
-                        color: status == 'read' ? Colors.blue : Colors.grey,
-                        size: 14,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMediaMessage(String? mediaUrl, String messageText) {
-    return Column(
-      children: [
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.grey[800],
-            image: mediaUrl != null && mediaUrl.isNotEmpty
-                ? DecorationImage(
-              image: NetworkImage(mediaUrl),
-              fit: BoxFit.cover,
-            )
-                : null,
-          ),
-          child: mediaUrl == null || mediaUrl.isEmpty
-              ? const Center(
-            child: Icon(
-              Icons.image,
-              color: Colors.white,
-              size: 50,
-            ),
-          )
-              : null,
-        ),
-        if (messageText.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            messageText,
-            style: const TextStyle(color: Colors.white),
-          ),
-        ],
-      ],
-    );
+    if (difference.inMinutes < 1) return 'just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    if (difference.inDays == 1) return 'yesterday';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+    return DateFormat('MMM d').format(lastSeen);
   }
 }

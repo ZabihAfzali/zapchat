@@ -7,8 +7,9 @@ class AssetConstants {
   static const String discoverIcon = 'assets/zapchat/Discover_icon.svg';
   static const String mapIcon = 'assets/zapchat/Map_icon.svg';
   static const String profileEmoji = 'assets/zapchat/profile_emoji.svg';
-  static const String searchIcon = 'assets/zapchat/Search_icon.svg';
-  static const String settingsDots = 'assets/zapchat/settings_dots.svg';
+  static const String personIcon = 'assets/zapchat/person_icon.svg';
+  static const String searchIcon = 'assets/zapchat/searchIcon.svg';
+  static const String settingsIcon = 'assets/zapchat/settingsIcon.svg';
   static const String cameraVector = 'assets/zapchat/Vector_camera.svg';
   static const String friends = 'assets/zapchat/Vector_friend_icon.svg';
   static const String facebookLight = 'assets/zapchat/facebook_light.svg';
@@ -18,6 +19,7 @@ class AssetConstants {
   static const String snapLogoYellow = 'assets/zapchat/snap_logo_yellow.svg';
   static const String snapLogoDarkBackground = 'assets/zapchat/snap_logo_dark.svg';
   static const String snapLogoNoBackgroundWhite = 'assets/zapchat/snap_logo_nobg_white.svg';
+  static const String addFriend = 'assets/zapchat/addfriend.svg';
 
   // static const String storyIcon = 'assets/icons/story.svg';
   // static const String profileIcon = 'assets/icons/profile.svg';

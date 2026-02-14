@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:zapchat/core/constants/asset_constants.dart';
+import 'package:zapchat/core/routes/app_route.dart';
 import 'package:zapchat/core/routes/route_names.dart';
 import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 import 'package:zapchat/features/auth/views/sign_up_screen.dart';
@@ -64,11 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
       listener: (context, state) {
         if (state is Authenticated) {
           // Navigate to MainScreen
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/home',
-                (route) => false,
-          );
+          Navigator.pushReplacementNamed(context, RouteNames.main);
         }
 
         if (state is AuthError) {
@@ -121,9 +118,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         title: 'Sign Up',
                         isActive: false,
                         onTap: () {
-                         Navigator.push(context, MaterialPageRoute(builder: (context)=>SignUpScreen()));
-                        },
-                      ),
+                          Navigator.pushNamed(context, RouteNames.signup);
+                        }),
                     ],
                   ),
                   SizedBox(height: 24.h),
@@ -217,17 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     buttonColor: Colors.black,
                     buttonTextColor: Colors.white,
                   ),
-                  // SocialLoginButton(
-                  //   text: 'Continue with Google',
-                  //   image: AssetConstants.googleLogoLight,
-                  //   onTap: () {
-                  //     ScaffoldMessenger.of(context).showSnackBar(
-                  //       const SnackBar(
-                  //         content: Text('Google Sign In coming soon'),
-                  //       ),
-                  //     );
-                  //   },
-                  // ),
+
 
                   SizedBox(height: 12.h),
 
@@ -246,17 +232,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       buttonColor: Colors.black,
                       buttonTextColor: Colors.white,
                   ),
-                  // SocialLoginButton(
-                  //   text: 'Continue with Facebook',
-                  //   image: AssetConstants.facebookLight,
-                  //   onTap: () {
-                  //     ScaffoldMessenger.of(context).showSnackBar(
-                  //       const SnackBar(
-                  //         content: Text('Facebook Sign In coming soon'),
-                  //       ),
-                  //     );
-                  //   },
-                  // ),
 
                   SizedBox(height: 40.h), // Add bottom padding
                 ],

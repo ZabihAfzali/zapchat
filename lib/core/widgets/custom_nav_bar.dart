@@ -1,9 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+class NavItem {
+  final String assetPath;
+  final String label;
+  final String activeLabel;
+  final Size size;
+
+  const NavItem({
+    required this.assetPath,
+    required this.label,
+    required this.activeLabel,
+    this.size = const Size(25, 25),
+  });
+}
+
+class NavSvgIcon extends StatelessWidget {
+  final NavItem item;
+  final bool isActive;
+
+  const NavSvgIcon({
+    super.key,
+    required this.item,
+    required this.isActive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      item.assetPath,
+      colorFilter: ColorFilter.mode(
+        isActive ? Colors.yellow : Colors.grey,
+        BlendMode.srcIn,
+      ),
+      width: item.size.width.w,
+      height: item.size.height.h,
+      fit: BoxFit.contain,
+    );
+  }
+}
 
 class CustomBottomNav extends StatelessWidget {
   final int currentIndex;
-  final Function(int) onTap;
+  final ValueChanged<int> onTap;
+
+  static  final List<NavItem> _navItems = [
+    NavItem(
+      assetPath: 'assets/zapchat/Map_icon.svg',
+      label: 'map',
+      activeLabel: 'Map',
+      size: Size(28.sp, 28.sp),
+    ),
+    NavItem(
+      assetPath: 'assets/zapchat/Chat_icon.svg',
+      label: 'chat',
+      activeLabel: 'Chat',
+      size: Size(24.sp, 24.sp),
+    ),
+    NavItem(
+      assetPath: 'assets/zapchat/Camera_icon.svg',
+      label: 'camera',
+      activeLabel: 'Camera',
+      size: Size(20.sp, 20.sp ), // Larger camera icon
+    ),
+    NavItem(
+      assetPath: 'assets/zapchat/Vector_friend_icon.svg',
+      label: 'friends',
+      activeLabel: 'Friends',
+      size: Size(18.sp, 18.sp),
+    ),
+    NavItem(
+      assetPath: 'assets/zapchat/Discover_icon.svg',
+      label: 'discover',
+      activeLabel: 'Discover',
+      size: Size(20.sp, 20.sp),
+    ),
+  ];
 
   const CustomBottomNav({
     super.key,
@@ -22,7 +95,7 @@ class CustomBottomNav extends StatelessWidget {
       ),
       child: BottomNavigationBar(
         items: _buildNavItems(),
-        currentIndex: currentIndex,
+        currentIndex: currentIndex.clamp(0, _navItems.length - 1),
         selectedItemColor: Colors.yellow,
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.black,
@@ -30,38 +103,21 @@ class CustomBottomNav extends StatelessWidget {
         showSelectedLabels: false,
         showUnselectedLabels: false,
         elevation: 0,
+        selectedFontSize: 0,
+        unselectedFontSize: 0,
         onTap: onTap,
       ),
     );
   }
 
   List<BottomNavigationBarItem> _buildNavItems() {
-    return const [
-      BottomNavigationBarItem(
-        icon: Icon(Icons.home_outlined, size: 28),
-        activeIcon: Icon(Icons.home, size: 28),
-        label: '',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.chat_bubble_outline, size: 28),
-        activeIcon: Icon(Icons.chat_bubble, size: 28),
-        label: 'chat',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.camera_alt_outlined, size: 28),
-        activeIcon: Icon(Icons.camera_alt, size: 28),
-        label: 'camera',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.play_arrow_outlined, size: 28),
-        activeIcon: Icon(Icons.play_arrow, size: 28),
-        label: 'friends',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.person_outline, size: 28),
-        activeIcon: Icon(Icons.person, size: 28),
-        label: 'home',
-      ),
-    ];
+    return _navItems.map((item) {
+      return BottomNavigationBarItem(
+        icon: NavSvgIcon(item: item, isActive: false),
+        activeIcon: NavSvgIcon(item: item, isActive: true),
+        label: item.label,
+        tooltip: item.activeLabel,
+      );
+    }).toList();
   }
 }

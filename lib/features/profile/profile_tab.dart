@@ -2,12 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:zapchat/core/routes/route_names.dart';
 import 'package:zapchat/core/widgets/custom_list_tile.dart';
 import 'package:zapchat/features/auth/bloc/auth_bloc.dart';
 import 'package:zapchat/features/home/repository/home_repository.dart';
 
-import '../../../core/widgets/custom_appbar.dart';
-import '../../auth/bloc/auth_events.dart';
+import '../../core/widgets/custom_appbar.dart';
+import '../auth/bloc/auth_events.dart';
 
 class ProfileTab extends StatefulWidget {
   final HomeRepository homeRepository;
@@ -46,10 +47,7 @@ class _ProfileTabState extends State<ProfileTab> {
       backgroundColor: Colors.black,
       appBar: const CustomAppBar(
         title: 'Profile',
-        leading: Icon(Icons.settings, color: Colors.white, size: 28),
-        actions: [
-          Icon(Icons.logout, color: Colors.white, size: 28),
-        ],
+
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.yellow))
@@ -189,6 +187,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   title: 'Logout',
                   onTap: () {
                     _showLogoutConfirmation(context);
+
                   },
                   iconColor: Colors.red,
                   textColor: Colors.red,
@@ -258,8 +257,12 @@ class _ProfileTabState extends State<ProfileTab> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
               BlocProvider.of<AuthBloc>(context).add(AuthLogoutRequested());
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                RouteNames.login,   // the new route
+                    (route) => false,  // remove all previous routes
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
