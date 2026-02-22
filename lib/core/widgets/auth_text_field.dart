@@ -2,12 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-/// Custom text field for authentication screens with Cupertino visibility icon
 class AuthTextField extends StatefulWidget {
   final String hint;
   final TextEditingController controller;
   final bool isPassword;
   final TextInputType? keyboardType;
+  final bool enabled; // Added enabled parameter
 
   const AuthTextField({
     super.key,
@@ -15,6 +15,7 @@ class AuthTextField extends StatefulWidget {
     required this.controller,
     this.isPassword = false,
     this.keyboardType,
+    this.enabled = true, // Default to true
   });
 
   @override
@@ -37,19 +38,20 @@ class _AuthTextFieldState extends State<AuthTextField> {
       obscureText: widget.isPassword && _obscureText,
       keyboardType: widget.keyboardType,
       cursorColor: Colors.black,
+      enabled: widget.enabled, // Use enabled parameter
       style: TextStyle(
-        color: Colors.black,
+        color: widget.enabled ? Colors.black : Colors.black54, // Dim text when disabled
         fontSize: 16.sp,
         fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
         hintText: widget.hint,
         hintStyle: TextStyle(
-          color: Colors.black54,
+          color: widget.enabled ? Colors.black54 : Colors.black26, // Dim hint when disabled
           fontSize: 15.sp,
         ),
         filled: true,
-        fillColor: Colors.white70,
+        fillColor: widget.enabled ? Colors.white70 : Colors.grey.shade200, // Change background when disabled
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide.none,
@@ -66,14 +68,14 @@ class _AuthTextFieldState extends State<AuthTextField> {
             _obscureText
                 ? CupertinoIcons.eye_slash
                 : CupertinoIcons.eye,
-            color: Colors.black54,
+            color: widget.enabled ? Colors.black54 : Colors.black26, // Dim icon when disabled
             size: 22.sp,
           ),
-          onPressed: () {
+          onPressed: widget.enabled ? () { // Only allow toggle when enabled
             setState(() {
               _obscureText = !_obscureText;
             });
-          },
+          } : null, // Disable button when text field is disabled
         )
             : null,
       ),

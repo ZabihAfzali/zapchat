@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">zapchat</string>
+    <string name="facebook_app_id">944787518109572</string>
+    <string name="fb_login_protocol_scheme">fb944787518109572</string>
+    <string name="facebook_client_token">6cacccb79b4d9903b4063d115f31b809</string>
+</resources>

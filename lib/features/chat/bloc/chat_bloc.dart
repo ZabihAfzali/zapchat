@@ -1,4 +1,5 @@
 // lib/features/chat/bloc/chat_bloc.dart
+import 'dart:async';
 import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -22,19 +23,34 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<UpdateTypingStatus>(_onUpdateTypingStatus);
     on<DeleteMessage>(_onDeleteMessage);
     on<ClearUnreadCount>(_onClearUnreadCount);
+    on<StartSearch>(_onStartSearch);
+    on<StopSearch>(_onStopSearch);
+    on<LoadGroupMessages>(_onLoadGroupMessages);
+    on<SendGroupMessage>(_onSendGroupMessage);
+    on<SendGroupMediaMessage>(_onSendGroupMediaMessage);
   }
 
-  Future<void> _onLoadChats(
-      LoadChats event,
-      Emitter<ChatState> emit,
-      ) async {
+  Future<void> _onLoadChats(LoadChats event, Emitter<ChatState> emit) async {
     emit(ChatLoading());
 
     try {
-      // Listen to real-time updates
+      // Listen to chats stream
       await emit.forEach<List<Chat>>(
         chatRepository.getChatsStream(),
-        onData: (chats) => ChatsLoaded(chats: chats),
+        onData: (chats) {
+          // Also get groups
+          chatRepository.getGroupsStream().listen((groups) {
+            if (state is ChatsLoaded) {
+              emit((state as ChatsLoaded).copyWith(
+                chats: chats,
+                groups: groups,
+              ));
+            } else {
+              emit(ChatsLoaded(chats: chats, groups: groups));
+            }
+          });
+          return ChatsLoaded(chats: chats);
+        },
         onError: (error, stackTrace) => ChatError(message: error.toString()),
       );
     } catch (e) {
@@ -153,6 +169,99 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       await chatRepository.clearUnreadCount(event.chatId);
     } catch (e) {
       print('Failed to clear unread count: $e');
+    }
+  }
+
+
+
+  FutureOr<void> _onStartSearch(StartSearch event, Emitter<ChatState> emit) {
+    if (state is ChatsLoaded) {
+      final currentState = state as ChatsLoaded;
+      final query = event.query.toLowerCase();
+
+      if (query.isEmpty) {
+        emit(currentState.copyWith(
+          searchState: const SearchState(isSearching: true),
+        ));
+        return null;  // Add explicit return
+      }
+
+      // Search in chats
+      final chatResults = currentState.chats.where((chat) {
+        final userName = chat.otherUser?.name.toLowerCase() ?? '';
+        final lastMessage = chat.lastMessage?.toLowerCase() ?? '';
+        return userName.contains(query) || lastMessage.contains(query);
+      }).toList();
+
+      // For now, message results are empty
+      const messageResults = <Message>[];
+
+      emit(currentState.copyWith(
+        searchState: SearchState(
+          isSearching: true,
+          query: event.query,
+          chatResults: chatResults,
+          messageResults: messageResults,
+        ),
+      ));
+    }
+  }
+
+  FutureOr<void> _onStopSearch(StopSearch event, Emitter<ChatState> emit) {
+    if (state is ChatsLoaded) {
+      emit((state as ChatsLoaded).copyWith(
+        searchState: const SearchState(isSearching: false),
+      ));
+    }
+  }
+
+  Future<void> _onLoadGroupMessages(
+      LoadGroupMessages event,
+      Emitter<ChatState> emit,
+      ) async {
+    emit(ChatLoading());
+
+    try {
+      await emit.forEach<List<Message>>(
+        chatRepository.getGroupMessagesStream(event.chatId),
+        onData: (messages) => GroupMessagesLoaded(
+          chatId: event.chatId,
+          messages: messages,
+        ),
+        onError: (error, stackTrace) => ChatError(message: error.toString()),
+      );
+    } catch (e) {
+      emit(ChatError(message: 'Failed to load group messages: $e'));
+    }
+  }
+
+  Future<void> _onSendGroupMessage(
+      SendGroupMessage event,
+      Emitter<ChatState> emit,
+      ) async {
+    try {
+      await chatRepository.sendGroupMessage(
+        groupId: event.chatId,
+        text: event.text,
+      );
+    } catch (e) {
+      emit(ChatError(message: 'Failed to send message: $e'));
+    }
+  }
+
+  Future<void> _onSendGroupMediaMessage(
+      SendGroupMediaMessage event,
+      Emitter<ChatState> emit,
+      ) async {
+    try {
+      await chatRepository.sendGroupMediaMessage(
+        groupId: event.groupId,
+        file: event.file,
+        mediaType: event.mediaType,
+        caption: event.caption,
+      );
+    } catch (e) {
+      emit(ChatError(message: 'Failed to send media: $e'));
     }
   }
 }

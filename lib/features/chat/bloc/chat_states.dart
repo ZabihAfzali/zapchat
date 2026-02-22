@@ -3,6 +3,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../models/chat.dart';
+import '../models/group.dart';
 import '../models/message.dart';
 
 abstract class ChatState extends Equatable {
@@ -15,15 +16,6 @@ abstract class ChatState extends Equatable {
 class ChatInitial extends ChatState {}
 
 class ChatLoading extends ChatState {}
-
-class ChatsLoaded extends ChatState {
-  final List<Chat> chats;
-
-  const ChatsLoaded({required this.chats});
-
-  @override
-  List<Object> get props => [chats];
-}
 
 class MessagesLoaded extends ChatState {
   final String chatId;
@@ -38,6 +30,18 @@ class MessagesLoaded extends ChatState {
 
   @override
   List<Object> get props => [chatId, messages, isTyping];
+
+  MessagesLoaded copyWith({
+    String? chatId,
+    List<Message>? messages,
+    bool? isTyping,
+  }) {
+    return MessagesLoaded(
+      chatId: chatId ?? this.chatId,
+      messages: messages ?? this.messages,
+      isTyping: isTyping ?? this.isTyping,
+    );
+  }
 }
 
 class MessageSent extends ChatState {
@@ -78,3 +82,73 @@ class ChatError extends ChatState {
   @override
   List<Object> get props => [message];
 }
+
+class SearchState extends Equatable {
+  final String query;
+  final bool isSearching;
+  final List<Chat> chatResults;
+  final List<Message> messageResults;
+
+  const SearchState({
+    this.query = '',
+    this.isSearching = false,
+    this.chatResults = const [],
+    this.messageResults = const [],
+  });
+
+  @override
+  List<Object> get props => [query, isSearching, chatResults, messageResults];
+
+  SearchState copyWith({
+    String? query,
+    bool? isSearching,
+    List<Chat>? chatResults,
+    List<Message>? messageResults,
+  }) {
+    return SearchState(
+      query: query ?? this.query,
+      isSearching: isSearching ?? this.isSearching,
+      chatResults: chatResults ?? this.chatResults,
+      messageResults: messageResults ?? this.messageResults,
+    );
+  }
+}
+
+// In chat_states.dart
+class ChatsLoaded extends ChatState {
+  final List<Chat> chats;
+  final List<Group> groups; // Add groups
+  final SearchState searchState;
+
+  const ChatsLoaded({
+    required this.chats,
+    this.groups = const [], // Default empty list
+    this.searchState = const SearchState(),
+  });
+
+  @override
+  List<Object> get props => [chats, groups, searchState];
+
+  ChatsLoaded copyWith({
+    List<Chat>? chats,
+    List<Group>? groups,
+    SearchState? searchState,
+  }) {
+    return ChatsLoaded(
+      chats: chats ?? this.chats,
+      groups: groups ?? this.groups,
+      searchState: searchState ?? this.searchState,
+    );
+  }
+}
+class GroupsLoaded extends ChatState {
+  final List<Group> groups;
+  const GroupsLoaded({required this.groups});
+}
+
+class GroupMessagesLoaded extends ChatState {
+  final String chatId;
+  final List<Message> messages;
+  const GroupMessagesLoaded({required this.chatId, required this.messages});
+}
+

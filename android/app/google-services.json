@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "297527898900-qkg70q70hhcbl5t749bvefer1plusu8e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.zapchat",
+            "certificate_hash": "c6524bea2196b1662b9d134298b017f47a135198"
+          }
+        },
+        {
           "client_id": "297527898900-alqee2e6l0b135kdeuibs4kj4260ing5.apps.googleusercontent.com",
           "client_type": 3
         }

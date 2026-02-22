@@ -3,11 +3,13 @@ import 'package:zapchat/core/widgets/custom_appbar.dart';
 import 'package:zapchat/features/chat/views/chat_list_screen.dart';
 import 'package:zapchat/features/chat/views/chat_screen.dart';
 import 'package:zapchat/features/home/repository/home_repository.dart';
+import 'package:zapchat/features/profile/repository/profile_repository.dart';
+import 'package:zapchat/features/stories/repository/stories_repository.dart';
 
 import '../../../core/widgets/custom_nav_bar.dart';
 import 'camera_tab.dart';
-import 'stories_tab.dart';
-import '../../profile/profile_tab.dart';
+import '../../stories/views/stories_tab.dart';
+import '../../profile/views/profile_tab.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,13 +21,16 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   late HomeRepository _homeRepository;
-
+  late ProfileRepository _profileRepository;
+  late StoriesRepository _storiesRepository;
   final List<Widget> _tabs = [];
 
   @override
   void initState() {
     super.initState();
     _homeRepository = HomeRepository();
+    _profileRepository=ProfileRepository();
+    _storiesRepository=StoriesRepository();
     _initializeTabs();
   }
 
@@ -34,8 +39,8 @@ class _MainScreenState extends State<MainScreen> {
       ChatListScreen(),
       ChatListScreen(),
       const CameraTab(),
-      StoriesTab(homeRepository: _homeRepository),
-      ProfileTab(homeRepository: _homeRepository),
+      StoriesTab(),
+      ProfileTab(profileRepository: _profileRepository,),
     ]);
   }
 

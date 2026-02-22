@@ -52,12 +52,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+
 class DefaultButton extends StatelessWidget {
   final String title;
   final String? image;
   final Color buttonColor;
   final Color buttonTextColor;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed; // Make it nullable
+
   const DefaultButton({
     Key? key,
     required this.title,
@@ -70,32 +72,34 @@ class DefaultButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap:onPressed,
+      onTap: onPressed, // Now accepts nullable
       child: Container(
         width: double.infinity,
-        height:45.h,
+        height: 45.h,
         decoration: BoxDecoration(
-          color: buttonColor,
+          color: onPressed == null ? buttonColor.withOpacity(0.5) : buttonColor, // Dim when disabled
           borderRadius: BorderRadius.circular(10.r),
         ),
-        child:Padding(
-          padding:  EdgeInsets.only(left:10.r,right: 10.r),
+        child: Padding(
+          padding: EdgeInsets.only(left: 10.r, right: 10.r),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
-                image.toString(),
-                height:40.h,
-                width:40.w ,
-              ),
-              SizedBox(width: 20.w,),
+              if (image != null) ...[
+                SvgPicture.asset(
+                  image!,
+                  height: 40.h,
+                  width: 40.w,
+                ),
+                SizedBox(width: 20.w),
+              ],
               Text(
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
                   fontSize: 16.sp,
                   fontFamily: 'Inter',
-                  color: buttonTextColor,
+                  color: onPressed == null ? buttonTextColor.withOpacity(0.5) : buttonTextColor,
                 ),
                 textAlign: TextAlign.center,
               ),

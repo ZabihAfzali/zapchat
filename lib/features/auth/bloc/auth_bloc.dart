@@ -1,168 +1,142 @@
+// lib/features/auth/bloc/auth_bloc.dart
 import 'dart:async';
-
 import 'package:bloc/bloc.dart';
+import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:zapchat/features/auth/repository/auth_repository.dart';
-
+import '../repository/auth_repository.dart';
+import '../models/user_model.dart';
 import 'auth_events.dart';
 import 'auth_state.dart';
 
+
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final AuthRepository authRepository;
+  final AuthRepository _authRepository;
+  StreamSubscription<User?>? _authSubscription;
 
-  AuthBloc({required this.authRepository}) : super(AuthInitial()) {
-    on<AuthCheckRequested>(_onAuthCheckRequested);
-    on<AuthLoginRequested>(_onAuthLoginRequested);
-    on<AuthSignupRequested>(_onAuthSignupRequested);
-    on<AuthSendOtpRequested>(_onSendOtpRequested);
-    on<AuthOtpVerificationRequested>(_onOtpVerificationRequested);
+  AuthBloc({required AuthRepository authRepository})
+      : _authRepository = authRepository,
+        super(AuthInitial()) {
+    on<AuthLoginRequested>(_onLoginRequested);
+    on<AuthSignupRequested>(_onSignupRequested);
+    on<GoogleSignInRequested>(_onGoogleSignInRequested);
+    on<FacebookSignInRequested>(_onFacebookSignInRequested);
+    on<LinkAccountsRequested>(_onLinkAccountsRequested);
     on<AuthLogoutRequested>(_onLogoutRequested);
+    on<CheckAuthStatus>(_onCheckAuthStatus);
+
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      add(CheckAuthStatus());
+    });
+
+    add(CheckAuthStatus());
   }
 
-  Future<void> _onAuthCheckRequested(
-      AuthCheckRequested event,
-      Emitter<AuthState> emit,
-      ) async {
-    emit(AuthLoading());
-
-    try {
-      final user = authRepository.currentUser;
-
-      if (user != null) {
-        emit(Authenticated(
-          userId: user.uid,
-          email: user.email ?? '',
-          name: user.displayName ?? 'User',
-        ));
-      } else {
-        emit(Unauthenticated());
-      }
-    } catch (e) {
-      emit(AuthError(message: 'Failed to check authentication status'));
-    }
-  }
-
-  Future<void> _onAuthLoginRequested(
+  Future<void> _onLoginRequested(
       AuthLoginRequested event,
       Emitter<AuthState> emit,
       ) async {
     emit(AuthLoading());
-
     try {
-      final user = await authRepository.login(
+      final user = await _authRepository.login(
         email: event.email,
         password: event.password,
       );
-
-      emit(Authenticated(
-        userId: user.uid,
-        email: user.email ?? '',
-        name: user.displayName ?? 'User',
-      ));
-    } on FirebaseAuthException catch (e) {
-      emit(AuthError(message: _getErrorMessage(e.code)));
+      final userData = await _authRepository.getUserData(user.uid);
+      emit(Authenticated(user, userData));
     } catch (e) {
-      emit(AuthError(message: 'Login failed. Please try again.'));
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 
-  Future<void> _onAuthSignupRequested(
+  Future<void> _onSignupRequested(
       AuthSignupRequested event,
       Emitter<AuthState> emit,
       ) async {
     emit(AuthLoading());
-
     try {
-      final user = await authRepository.signUp(
+      final user = await _authRepository.signUp(
         name: event.name,
         email: event.email,
-        phone: event.phone,
         password: event.password,
+        phone: event.phone,
       );
-
-      // Emit authenticated state
-      emit(Authenticated(
-        userId: user.uid,
-        email: user.email ?? '',
-        name: user.displayName ?? 'User',
-      ));
-
-      // Do NOT send OTP here - let the UI handle it
-      // The SignUpScreen listener will handle OTP sending separately
-
-    } on FirebaseAuthException catch (e) {
-      emit(AuthError(message: _getErrorMessage(e.code)));
+      final userData = await _authRepository.getUserData(user.uid);
+      emit(Authenticated(user, userData));
     } catch (e) {
-      emit(AuthError(message: 'Signup failed. Please try again.'));
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 
-  Future<void> _onSendOtpRequested(
-      AuthSendOtpRequested event,
+  Future<void> _onGoogleSignInRequested(
+      GoogleSignInRequested event,
       Emitter<AuthState> emit,
       ) async {
     emit(AuthLoading());
-
-    // Use a completer to handle async callbacks properly
-    final completer = Completer<void>();
-
-    await authRepository.sendOtpToPhone(
-      phoneNumber: event.phoneNumber,
-      onCodeSent: (verificationId) {
-        if (!completer.isCompleted) {
-          emit(OtpSent(
-            verificationId: verificationId,
-            phoneNumber: event.phoneNumber,
-          ));
-          completer.complete();
-        }
-      },
-      onVerificationFailed: (error) {
-        if (!completer.isCompleted) {
-          emit(AuthError(message: 'Failed to send OTP: ${error.message}'));
-          completer.complete();
-        }
-      },
-      onCodeAutoRetrievalTimeout: (verificationId) {
-        // Just store it, no state change needed
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-    );
-
-    // Wait for callback to complete
-    await completer.future.timeout(const Duration(seconds: 30), onTimeout: () {
-      emit(AuthError(message: 'OTP request timeout. Please try again.'));
-    });
+    try {
+      final user = await _authRepository.signInWithGoogle();
+      if (user != null) {
+        final userData = await _authRepository.getUserData(user.uid);
+        emit(Authenticated(user, userData));
+      } else {
+        emit(Unauthenticated());
+      }
+    } on AccountExistsWithDifferentCredentialException catch (e) {
+      // Emit a special state for account linking
+      emit(AccountLinkingNeeded(
+        email: e.email,
+        providers: e.providers,
+        message: e.message,
+      ));
+    } catch (e) {
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
+    }
   }
 
-  Future<void> _onOtpVerificationRequested(
-      AuthOtpVerificationRequested event,
+  Future<void> _onFacebookSignInRequested(
+      FacebookSignInRequested event,
       Emitter<AuthState> emit,
       ) async {
     emit(AuthLoading());
-
     try {
-      final userCredential = await authRepository.verifyOtp(
-        otp: event.otp,
-        verificationId: event.verificationId,
-      );
-
-      final user = userCredential.user;
+      final user = await _authRepository.signInWithFacebook();
       if (user != null) {
-        emit(Authenticated(
-          userId: user.uid,
-          email: user.email ?? '',
-          name: user.displayName ?? 'User',
-        ));
+        final userData = await _authRepository.getUserData(user.uid);
+        emit(Authenticated(user, userData));
       } else {
-        emit(AuthError(message: 'OTP verification failed'));
+        emit(Unauthenticated());
       }
-    } on FirebaseAuthException catch (e) {
-      emit(AuthError(message: _getErrorMessage(e.code)));
+    } on AccountExistsWithDifferentCredentialException catch (e) {
+      // Emit a special state for account linking
+      emit(AccountLinkingNeeded(
+        email: e.email,
+        providers: e.providers,
+        message: e.message,
+      ));
     } catch (e) {
-      emit(AuthError(message: 'OTP verification failed. Please try again.'));
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onLinkAccountsRequested(
+      LinkAccountsRequested event,
+      Emitter<AuthState> emit,
+      ) async {
+    emit(AuthLoading());
+    try {
+      User? user;
+      if (event.providerToLink == 'google') {
+        user = await _authRepository.linkGoogleAccount();
+      } else if (event.providerToLink == 'facebook') {
+        user = await _authRepository.linkFacebookAccount();
+      }
+
+      if (user != null) {
+        final userData = await _authRepository.getUserData(user.uid);
+        emit(AccountsLinked());
+        emit(Authenticated(user, userData));
+      }
+    } catch (e) {
+      emit(AuthError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 
@@ -171,43 +145,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       Emitter<AuthState> emit,
       ) async {
     emit(AuthLoading());
+    await _authRepository.logout();
+    emit(Unauthenticated());
+  }
 
-    try {
-      await authRepository.logout();
+  Future<void> _onCheckAuthStatus(
+      CheckAuthStatus event,
+      Emitter<AuthState> emit,
+      ) async {
+    final user = _authRepository.currentUser;
+    if (user != null) {
+      final userData = await _authRepository.getUserData(user.uid);
+      emit(Authenticated(user, userData));
+    } else {
       emit(Unauthenticated());
-    } catch (e) {
-      emit(AuthError(message: 'Logout failed'));
     }
   }
 
-  String _getErrorMessage(String errorCode) {
-    switch (errorCode) {
-      case 'user-not-found':
-        return 'No user found with this email.';
-      case 'wrong-password':
-        return 'Incorrect password.';
-      case 'email-already-in-use':
-        return 'Email already in use.';
-      case 'invalid-email':
-        return 'Invalid email address.';
-      case 'weak-password':
-        return 'Password is too weak.';
-      case 'network-request-failed':
-        return 'Network error. Check your connection.';
-      case 'too-many-requests':
-        return 'Too many requests. Try again later.';
-      case 'invalid-verification-code':
-        return 'Invalid OTP code.';
-      case 'invalid-phone-number':
-        return 'Invalid phone number format.';
-      case 'quota-exceeded':
-        return 'SMS quota exceeded. Try again later.';
-      case 'provider-already-linked':
-        return 'Phone number already linked to another account.';
-      case 'billing-not-enabled':
-        return 'Phone verification requires billing to be enabled. Please use test mode or enable billing.';
-      default:
-        return 'Authentication failed. Please try again.';
-    }
+  @override
+  Future<void> close() {
+    _authSubscription?.cancel();
+    return super.close();
   }
 }

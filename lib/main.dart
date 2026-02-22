@@ -19,6 +19,10 @@ import 'core/services/storage_services.dart';
 import 'features/auth/bloc/auth_events.dart';
 import 'features/auth/bloc/auth_state.dart';
 import 'features/home/views/main_screen.dart';
+import 'features/profile/bloc/profile_bloc.dart';
+import 'features/profile/repository/profile_repository.dart';
+import 'features/stories/bloc/stories_bloc.dart';
+import 'features/stories/repository/stories_repository.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -73,18 +77,24 @@ class MyApp extends StatelessWidget {
           create: (context) => ChatRepository(
           ),
         ),
+        BlocProvider<ProfileBloc>(
+          create: (context) => ProfileBloc(profileRepository: ProfileRepository()),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AuthBloc>(
             create: (context) => AuthBloc(
               authRepository: context.read<AuthRepository>(),
-            )..add(AuthCheckRequested()),
+            )..add(CheckAuthStatus()),
           ),
           BlocProvider<ChatBloc>(
             create: (context) => ChatBloc(
               chatRepository: context.read<ChatRepository>(),
             ),
+          ),
+          BlocProvider<StoriesBloc>(
+            create: (context) => StoriesBloc(storiesRepository: StoriesRepository()),
           ),
         ],
         child: ScreenUtilInit(

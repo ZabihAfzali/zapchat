@@ -21,9 +21,10 @@ android {
     defaultConfig {
         applicationId = "com.example.zapchat"
         minSdk = flutter.minSdkVersion
-        targetSdk = 34
+        targetSdk = 33
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
     }
 
     buildTypes {
@@ -41,4 +42,6 @@ dependencies {
     // Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
     implementation("com.google.firebase:firebase-analytics")
+    implementation("androidx.work:work-runtime:2.9.0")
+    implementation("com.facebook.android:facebook-android-sdk:latest.release")
 }

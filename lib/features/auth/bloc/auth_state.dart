@@ -1,59 +1,49 @@
+// lib/features/auth/bloc/auth_state.dart
 
 import 'package:equatable/equatable.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 abstract class AuthState extends Equatable {
   const AuthState();
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
-// Initial state
 class AuthInitial extends AuthState {}
-
-// Loading state
 class AuthLoading extends AuthState {}
-
-// Authenticated state
-class Authenticated extends AuthState {
-  final String userId;
-  final String email;
-  final String name;
-
-  const Authenticated({
-    required this.userId,
-    required this.email,
-    required this.name,
-  });
-  @override
-  List<Object> get props => [userId, email, name];
-}
-
-// Unauthenticated state
 class Unauthenticated extends AuthState {}
 
-// OTP sent state
-class OtpSent extends AuthState {
-  final String verificationId;
-  final String phoneNumber;
-
-  const OtpSent({
-    required this.verificationId,
-    required this.phoneNumber,
-  });
-
+class Authenticated extends AuthState {
+  final User user;
+  final Map<String, dynamic> userData;
+  const Authenticated(this.user, this.userData);
   @override
-  List<Object> get props => [verificationId, phoneNumber];
+  List<Object?> get props => [user.uid, userData];
 }
 
-// OTP verified state
-class OtpVerified extends AuthState {}
+class AccountLinkingNeeded extends AuthState {
+  final String email;
+  final List<String> providers;
+  final String message;
+  const AccountLinkingNeeded({
+    required this.email,
+    required this.providers,
+    required this.message,
+  });
+  @override
+  List<Object?> get props => [email, providers, message];
+}
 
-// Error state
+class AccountsLinked extends AuthState {
+  final String message;
+  const AccountsLinked({this.message = 'Accounts linked successfully!'});
+  @override
+  List<Object?> get props => [message];
+}
+
 class AuthError extends AuthState {
   final String message;
-
-  const AuthError({required this.message});
-
+  const AuthError(this.message);
   @override
-  List<Object> get props => [message];
+  List<Object?> get props => [message];
 }

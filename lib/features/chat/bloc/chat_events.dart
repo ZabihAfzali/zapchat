@@ -105,3 +105,65 @@ class ClearUnreadCount extends ChatEvent {
   @override
   List<Object> get props => [chatId];
 }
+
+// Add to chat_events.dart
+class StartSearch extends ChatEvent {
+  final String query;
+
+  const StartSearch({required this.query});
+
+  @override
+  List<Object> get props => [query];
+}
+
+class StopSearch extends ChatEvent {}
+
+class ClearSearch extends ChatEvent {}
+
+// Add missing events to chat_events.dart
+class TogglePinChat extends ChatEvent {
+  final String chatId;
+  final bool isPinned;
+
+  const TogglePinChat({required this.chatId, required this.isPinned});
+
+  @override
+  List<Object> get props => [chatId, isPinned];
+}
+
+class ToggleMuteChat extends ChatEvent {
+  final String chatId;
+  final bool isMuted;
+
+  const ToggleMuteChat({required this.chatId, required this.isMuted});
+
+  @override
+  List<Object> get props => [chatId, isMuted];
+}
+
+class LoadGroups extends ChatEvent {}
+
+class LoadGroupMessages extends ChatEvent {
+  final String chatId;
+  const LoadGroupMessages({required this.chatId});
+}
+
+class SendGroupMessage extends ChatEvent {
+  final String chatId;
+  final String text;
+  const SendGroupMessage({required this.chatId, required this.text});
+}
+
+class SendGroupMediaMessage extends ChatEvent {
+  final String groupId;
+  final File file;
+  final String mediaType;
+  final String? caption;
+  const SendGroupMediaMessage({
+    required this.groupId,
+    required this.file,
+    required this.mediaType,
+    this.caption,
+  });
+}
+

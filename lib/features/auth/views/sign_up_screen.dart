@@ -1,5 +1,4 @@
-
-
+// lib/features/auth/views/sign_up_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,7 +12,6 @@ import '../../../core/widgets/auth_text_field.dart';
 import '../bloc/auth_events.dart';
 import '../bloc/auth_state.dart';
 
-// Signup Screen
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
 
@@ -27,6 +25,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   late final TextEditingController phoneController;
   late final TextEditingController passwordController;
   late final TextEditingController confirmPasswordController;
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +50,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     print('function called');
     if (nameController.text.isEmpty ||
         emailController.text.isEmpty ||
-        phoneController.text.isEmpty ||
         passwordController.text.isEmpty ||
         confirmPasswordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,7 +85,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       AuthSignupRequested(
         name: nameController.text.trim(),
         email: emailController.text.trim(),
-        phone: phoneController.text.trim(),
+        phone: phoneController.text.trim().isEmpty ? null : phoneController.text.trim(),
         password: passwordController.text,
       ),
     );
@@ -102,19 +100,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✅ Account created successfully! Please log in.'),
+              content: Text('✅ Account created successfully!'),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
+              duration: Duration(seconds: 2),
             ),
           );
-          // Navigate back to login screen after delay
-          Future.delayed(const Duration(milliseconds: 1500), () {
-            Navigator.pop(context);
-          });
+          // Navigate to main screen
+          Navigator.pushReplacementNamed(context, RouteNames.main);
         }
         if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       },
@@ -141,6 +140,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
                   SizedBox(height: 5.h),
+
                   // Optional Snapchat Ghost at top
                   Container(
                     margin: EdgeInsets.all(20.r),
@@ -155,6 +155,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
                   SizedBox(height: 10.h),
+
                   Text(
                     'Create Account',
                     style: TextStyle(
@@ -167,7 +168,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   SizedBox(height: 20.h),
 
                   // Name Field
-                  AuthTextField(hint: 'Full Name', controller: nameController),
+                  AuthTextField(
+                    hint: 'Full Name',
+                    controller: nameController,
+                  ),
                   SizedBox(height: 10.h),
 
                   // Email Field
@@ -177,9 +181,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     keyboardType: TextInputType.emailAddress,
                   ),
                   SizedBox(height: 10.h),
-                  // Phone Field
+
+                  // Phone Field (optional)
                   AuthTextField(
-                    hint: 'Phone Number (optional for now)',
+                    hint: 'Phone Number (optional)',
                     controller: phoneController,
                     keyboardType: TextInputType.phone,
                   ),
@@ -200,24 +205,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     isPassword: true,
                   ),
                   SizedBox(height: 20.h),
+
                   // Sign Up Button
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       final isLoading = state is AuthLoading;
 
                       return GestureDetector(
-                        onTap: () {
-                          if(isLoading == false){
-                            _handleSignUp();
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
-                              RouteNames.login,   // the new route
-                                  (route) => false,  // remove all previous routes
-                            );                          }
-                          else{
-                            print('is loading :: $isLoading');
-                          }
-                        },
+                        onTap: isLoading ? null : _handleSignUp,
                         child: Container(
                           height: 50.h,
                           width: double.infinity,
@@ -225,21 +220,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             borderRadius: BorderRadius.circular(10.r),
                             color: Colors.black,
                           ),
-                          child: isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                )
-                              : Center(
-                                  child: Text(
-                                    'Sign Up',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15.sp,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
+                          child: Center(
+                            child: isLoading
+                                ? const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            )
+                                : Text(
+                              'Sign Up',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
                       );
                     },
